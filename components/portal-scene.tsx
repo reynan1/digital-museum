@@ -25,23 +25,24 @@ void main() {
   vec2 visible = viewport / (imageSize * cover);
   float alignment = viewport.x <= 760. ? .83 : .5;
   vec2 p = uv * visible + (1. - visible) * vec2(alignment, .5);
-  p += pointer * .003 * sin(uv.x * 3.14159) * sin(uv.y * 3.14159);
+  // Let the whole image lean toward the pointer as the portal wakes.
+  p += pointer * (.009 + .018 * pull) * sin(uv.x * 3.14159) * sin(uv.y * 3.14159);
   vec2 center = vec2(.614, .378);
 
   // A broad, feathered field moves the figure without a hard cutout seam.
   float girl = 1. - smoothstep(.65, 1.25, length((p - vec2(.845, .585)) / vec2(.175, .34)));
   float breath = .5 - .5 * cos(time * .65);
-  float tug = .055 + .11 * breath + .16 * pull;
+  float tug = .055 + .11 * breath + .24 * pull;
   vec2 source = p + (p - center) * girl * tug;
   source.y += sin(time * 1.3 - p.x * 9.) * .008 * girl;
 
   vec2 delta = (source - center) * vec2(1.777, 1.);
   float radius = length(delta);
   float vortex = 1. - smoothstep(.035, .255, radius);
-  float angle = -(time * .7 + pull * 2.4) * vortex * vortex;
+  float angle = -(time * .7 + pull * 4.2) * vortex * vortex;
   float c = cos(angle), s = sin(angle);
   delta = mat2(c, -s, s, c) * delta;
-  delta *= 1. + .045 * sin(time * 1.7 - radius * 35.) * vortex;
+  delta *= 1. + (.045 + .025 * pull) * sin(time * 1.7 - radius * 35. - pull * 3.) * vortex;
   source = center + delta / vec2(1.777, 1.);
   vec3 color = texture2D(artwork, clamp(source, .001, .999)).rgb;
   float glow = exp(-radius * radius * 180.) * (.035 + .035 * sin(time * 1.7) + pull * .12);
@@ -130,8 +131,8 @@ export default function PortalScene() {
         const angle = spark.angle + life * (4.5 + currentPull * 1.2);
         const x = cx + Math.cos(angle) * radius;
         const y = cy + Math.sin(angle) * radius * .76;
-        const alpha = Math.sin(life * Math.PI) * (.55 + currentPull * .2);
-        const size = spark.size * Math.min(cover, 1.5) * (1 + currentPull * .35);
+        const alpha = Math.sin(life * Math.PI) * (.48 + currentPull * .38);
+        const size = spark.size * Math.min(cover, 1.5) * (1 + currentPull * .65);
         const tint = spark.cool ? '125,224,255' : '255,177,68';
         const halo = ink.createRadialGradient(x, y, 0, x, y, size * 6);
         halo.addColorStop(0, `rgba(${tint},${alpha * .6})`);
@@ -143,7 +144,7 @@ export default function PortalScene() {
         ink.lineCap = 'round';
         ink.beginPath();
         ink.moveTo(x, y);
-        ink.lineTo(x + Math.sin(angle) * size * (3 + currentPull * 4), y - Math.cos(angle) * size * 3);
+        ink.lineTo(x + Math.sin(angle) * size * (3 + currentPull * 7), y - Math.cos(angle) * size * (3 + currentPull * 2));
         ink.stroke();
         ink.fillStyle = `rgba(255,244,210,${alpha})`;
         ink.fillRect(x - size / 2, y - size / 2, size, size);
@@ -190,8 +191,9 @@ export default function PortalScene() {
       const cx = 1672 * .614 * cover + (bounds.width - 1672 * cover) * (bounds.width <= 760 ? .83 : .5);
       const cy = 941 * .378 * cover + (bounds.height - 941 * cover) * .5;
       const distance = Math.hypot(event.clientX - bounds.left - cx, event.clientY - bounds.top - cy);
-      targetPull = Math.max(0, 1 - distance / (bounds.width * .5));
-      if (event.buttons) targetPull = Math.min(1.3, targetPull + .5);
+      const proximity = Math.max(0, 1 - distance / (bounds.width * .62));
+      targetPull = proximity * proximity * 1.15;
+      if (event.buttons) targetPull = Math.min(1.6, targetPull + .45);
     };
     const leave = () => { targetPull = 0; pointerX = 0; pointerY = 0; };
     const focus = () => { targetPull = 1; };
