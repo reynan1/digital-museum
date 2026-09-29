@@ -19,37 +19,63 @@ uniform vec2 viewport;
 uniform float time;
 uniform float pull;
 uniform vec2 pointer;
+uniform float rotation;
 void main() {
   vec2 imageSize = vec2(1672., 941.);
   float cover = max(viewport.x / imageSize.x, viewport.y / imageSize.y);
   vec2 visible = viewport / (imageSize * cover);
   float alignment = viewport.x <= 760. ? .83 : .5;
   vec2 p = uv * visible + (1. - visible) * vec2(alignment, .5);
-  // Let the whole image lean toward the pointer as the portal wakes.
-  p += pointer * (.009 + .018 * pull) * sin(uv.x * 3.14159) * sin(uv.y * 3.14159);
   vec2 center = vec2(.614, .378);
 
   // A broad, feathered field moves the figure without a hard cutout seam.
   float girl = 1. - smoothstep(.65, 1.25, length((p - vec2(.845, .585)) / vec2(.175, .34)));
-  float breath = .5 - .5 * cos(time * .65);
-  float tug = .055 + .11 * breath + .24 * pull;
+  float breath = .5 - .5 * cos(time * .8);
+  float tug = .03 + .03 * breath + .075 * pull;
   vec2 source = p + (p - center) * girl * tug;
   source.y += sin(time * 1.3 - p.x * 9.) * .008 * girl;
 
   vec2 delta = (source - center) * vec2(1.777, 1.);
   float radius = length(delta);
-  float vortex = 1. - smoothstep(.035, .255, radius);
-  float angle = -(time * .7 + pull * 4.2) * vortex * vortex;
+  float portal = 1. - smoothstep(.32, .48, radius);
+  float vortex = 1. - smoothstep(.025, .27, radius);
+  float pulse = .5 + .5 * sin(time * 1.15);
+  float angle = -rotation * vortex * vortex;
   float c = cos(angle), s = sin(angle);
   delta = mat2(c, -s, s, c) * delta;
-  delta *= 1. + (.045 + .025 * pull) * sin(time * 1.7 - radius * 35. - pull * 3.) * vortex;
+  float rotatedAngle = atan(delta.y, delta.x);
+  delta *= 1. + (.016 + .025 * pull + .01 * pulse) * sin(time * 1.15 - radius * 30.) * vortex;
   source = center + delta / vec2(1.777, 1.);
   vec3 color = texture2D(artwork, clamp(source, .001, .999)).rgb;
-  float glow = exp(-radius * radius * 180.) * (.035 + .035 * sin(time * 1.7) + pull * .12);
-  color += vec3(.35, .85, 1.) * glow;
-  // A soft traveling rim of light follows the figure into the vortex.
-  float ribbon = exp(-pow((radius - .15 - .012 * sin(time * 1.4)) * 65., 2.));
-  color += vec3(.2, .65, .85) * ribbon * (.055 + .09 * pull);
+  float glow = exp(-radius * radius * 125.) * (.045 + .06 * pulse + pull * .18);
+  color += vec3(.38, .9, 1.) * glow;
+  // A wide bloom follows the larger portal rim and keeps its halo visible.
+  float wideHalo = exp(-pow((radius - .235) * 6., 2.));
+  color += vec3(.14, .4, .56) * wideHalo * (.17 + .3 * pull + .07 * pulse);
+  // One highlight follows the rotation, while another follows the pointer around the rim.
+  float rim = exp(-pow((radius - .235) * 38., 2.));
+  float lightAngle = rotatedAngle + rotation * .72;
+  float sweep = pow(max(0., cos(lightAngle)), 12.);
+  float goldSweep = pow(max(0., cos(lightAngle - 2.15)), 16.);
+  vec2 centerScreen = (center - (1. - visible) * vec2(alignment, .5)) / visible;
+  vec2 pointerDelta = (pointer + vec2(.5) - centerScreen) * vec2(viewport.x / viewport.y, 1.);
+  float pointerAngle = atan(pointerDelta.y, pointerDelta.x);
+  float pointerPresence = 1. - smoothstep(.12, .58, length(pointerDelta));
+  float pointerSweep = pow(max(0., cos(rotatedAngle - pointerAngle)), 20.) * pointerPresence;
+  float haloLight = exp(-pow((radius - .235) * 12., 2.)) * (.07 + .12 * pulse + .16 * pull);
+  float goldHalo = exp(-pow((radius - .245) * 9., 2.)) * (.06 + .12 * pulse + .18 * pull);
+  float warmCore = exp(-radius * radius * 72.) * (.025 + .035 * pulse + .08 * pull);
+  color += vec3(.08, .42, .58) * rim * (.12 + .16 * pull);
+  color += vec3(.48, .88, 1.) * haloLight;
+  color += vec3(1., .47, .12) * goldHalo;
+  color += vec3(1., .62, .24) * warmCore;
+  color += vec3(.72, .94, 1.) * sweep * rim * (.68 + .34 * pull + .18 * pulse);
+  color += vec3(1., .72, .3) * goldSweep * rim * (.18 + .38 * pull + .18 * pulse);
+  color += vec3(.82, .96, 1.) * pointerSweep * rim * (.18 + .85 * pull);
+  color += vec3(1., .82, .46) * pointerSweep * rim * (.06 + .42 * pull);
+  float innerShimmer = exp(-pow((radius - .13) * 48., 2.)) * (.025 + .045 * pulse);
+  color += vec3(.28, .72, .92) * innerShimmer;
+  color += vec3(.12, .58, .72) * portal * (.025 + .045 * pulse + .09 * pull);
   gl_FragColor = vec4(color, 1.);
 }`;
 
@@ -100,11 +126,11 @@ export default function PortalScene() {
     const position = gl.getAttribLocation(program, 'position');
     gl.enableVertexAttribArray(position);
     gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
-    const uniforms = Object.fromEntries(['viewport', 'time', 'pull', 'pointer'].map(name => [name, gl.getUniformLocation(program, name)]));
+  const uniforms = Object.fromEntries(['viewport', 'time', 'pull', 'pointer', 'rotation'].map(name => [name, gl.getUniformLocation(program, name)]));
     const texture = gl.createTexture();
     const image = new Image();
     let disposed = false, loaded = false, frame = 0, elapsed = 0, last = 0;
-    let targetPull = 0, currentPull = 0, pointerX = 0, pointerY = 0;
+    let targetPull = 0, currentPull = 0, pointerX = 0, pointerY = 0, pressed = false;
     const host = canvas.closest('main')!;
     let width = 0, height = 0;
     // Stable seeds keep the ash field continuous across frames.
@@ -127,24 +153,24 @@ export default function PortalScene() {
       ink.globalCompositeOperation = 'lighter';
       for (const spark of sparks) {
         const life = (spark.phase + elapsed * spark.speed) % 1;
-        const radius = (.025 + .49 * (1 - life)) * scale;
-        const angle = spark.angle + life * (4.5 + currentPull * 1.2);
+        const radius = .015 + .18 * (1 - life) * scale;
+        const angle = spark.angle + life * (1.8 + currentPull * .75);
         const x = cx + Math.cos(angle) * radius;
         const y = cy + Math.sin(angle) * radius * .76;
-        const alpha = Math.sin(life * Math.PI) * (.48 + currentPull * .38);
-        const size = spark.size * Math.min(cover, 1.5) * (1 + currentPull * .65);
+        const alpha = Math.sin(life * Math.PI) * (.42 + currentPull * .28);
+        const size = spark.size * Math.min(cover, 1.2) * (1 + currentPull * .35);
         const tint = spark.cool ? '125,224,255' : '255,177,68';
-        const halo = ink.createRadialGradient(x, y, 0, x, y, size * 6);
+        const halo = ink.createRadialGradient(x, y, 0, x, y, size * 3.5);
         halo.addColorStop(0, `rgba(${tint},${alpha * .6})`);
         halo.addColorStop(1, `rgba(${tint},0)`);
         ink.fillStyle = halo;
-        ink.fillRect(x - size * 6, y - size * 6, size * 12, size * 12);
+        ink.fillRect(x - size * 3.5, y - size * 3.5, size * 7, size * 7);
         ink.strokeStyle = `rgba(${tint},${alpha})`;
         ink.lineWidth = size;
         ink.lineCap = 'round';
         ink.beginPath();
         ink.moveTo(x, y);
-        ink.lineTo(x + Math.sin(angle) * size * (3 + currentPull * 7), y - Math.cos(angle) * size * (3 + currentPull * 2));
+        ink.lineTo(x + Math.sin(angle) * size * 2.5, y - Math.cos(angle) * size * 2.5);
         ink.stroke();
         ink.fillStyle = `rgba(255,244,210,${alpha})`;
         ink.fillRect(x - size / 2, y - size / 2, size, size);
@@ -165,12 +191,15 @@ export default function PortalScene() {
     };
     const draw = (now: number) => {
       const dt = last ? Math.min((now - last) / 1000, .05) : 0;
-      elapsed += dt * (1 + currentPull * .45);
+      elapsed += dt;
       last = now;
-      currentPull += (Math.max(targetPull, energizedRef.current ? 1 : 0) - currentPull) * (1 - Math.exp(-dt * 3));
+      const surge = energizedRef.current ? 1 : 0;
+      currentPull += (Math.max(targetPull, surge, pressed ? 1 : 0) - currentPull) * (1 - Math.exp(-dt * 4.5));
       gl.uniform1f(uniforms.time, elapsed);
       gl.uniform1f(uniforms.pull, currentPull);
       gl.uniform2f(uniforms.pointer, pointerX, pointerY);
+      const rotation = elapsed * .32 + currentPull * 1.4 + (energizedRef.current ? elapsed * .48 : 0) + (pressed ? .16 : 0);
+      gl.uniform1f(uniforms.rotation, rotation);
       gl.drawArrays(gl.TRIANGLES, 0, 6);
       drawEmbers();
       canvas.style.opacity = '1';
@@ -192,11 +221,11 @@ export default function PortalScene() {
       const cy = 941 * .378 * cover + (bounds.height - 941 * cover) * .5;
       const distance = Math.hypot(event.clientX - bounds.left - cx, event.clientY - bounds.top - cy);
       const proximity = Math.max(0, 1 - distance / (bounds.width * .62));
-      targetPull = proximity * proximity * 1.15;
-      if (event.buttons) targetPull = Math.min(1.6, targetPull + .45);
+      targetPull = Math.min(.82, proximity * proximity * .82);
+      pressed = event.buttons > 0;
     };
-    const leave = () => { targetPull = 0; pointerX = 0; pointerY = 0; };
-    const focus = () => { targetPull = 1; };
+    const leave = () => { targetPull = 0; pointerX = 0; pointerY = 0; pressed = false; };
+    const focus = () => { targetPull = .65; };
     const lost = (event: Event) => { event.preventDefault(); loaded = false; cancelAnimationFrame(frame); canvas.style.opacity = '0'; embers.style.opacity = '0'; };
     image.onload = () => {
       if (disposed) return;
@@ -254,7 +283,7 @@ export default function PortalScene() {
       <button disabled={paused} aria-pressed={energized} onClick={() => { energizedRef.current = !energized; setEnergized(!energized); }}>
         <span aria-hidden="true">✦</span> {energized ? 'Release the portal' : 'Awaken the portal'}
       </button>
-      <span className="portal-hint">Move closer. Feel the pull.</span>
+      <span className="portal-hint">Hover to draw it in · press to send a ripple</span>
     </div>
     <button className="motion-toggle" onClick={() => setPaused(value => !value)} aria-pressed={paused}>
       {paused ? 'Resume animation' : 'Pause animation'}
