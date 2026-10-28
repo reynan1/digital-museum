@@ -21,19 +21,14 @@ uniform float pull;
 uniform vec2 pointer;
 uniform float rotation;
 void main() {
-  vec2 imageSize = vec2(1672., 941.);
+  vec2 imageSize = vec2(1655., 950.);
   float cover = max(viewport.x / imageSize.x, viewport.y / imageSize.y);
   vec2 visible = viewport / (imageSize * cover);
-  float alignment = viewport.x <= 760. ? .83 : .5;
+  float alignment = .5;
   vec2 p = uv * visible + (1. - visible) * vec2(alignment, .5);
-  vec2 center = vec2(.614, .378);
-
-  // A broad, feathered field moves the figure without a hard cutout seam.
-  float girl = 1. - smoothstep(.65, 1.25, length((p - vec2(.845, .585)) / vec2(.175, .34)));
-  float breath = .5 - .5 * cos(time * .8);
-  float tug = .03 + .03 * breath + .075 * pull;
-  vec2 source = p + (p - center) * girl * tug;
-  source.y += sin(time * 1.3 - p.x * 9.) * .008 * girl;
+  // The source artwork places the live portal in the center of the mirror.
+  vec2 center = vec2(.5, .47);
+  vec2 source = p;
 
   vec2 delta = (source - center) * vec2(1.777, 1.);
   float radius = length(delta);
@@ -84,7 +79,35 @@ export default function PortalScene() {
   const emberRef = useRef<HTMLCanvasElement>(null);
   const energizedRef = useRef(false);
   const [energized, setEnergized] = useState(false);
-  const [paused, setPaused] = useState(false);
+  const [opened, setOpened] = useState(false);
+  const [paused, setPaused] = useState(true);
+
+  function openPortal() {
+    energizedRef.current = true;
+    setEnergized(true);
+    setOpened(true);
+    setPaused(false);
+  }
+
+  function togglePortalEnergy() {
+    if (!opened) {
+      openPortal();
+      return;
+    }
+
+    energizedRef.current = !energized;
+    setEnergized(!energized);
+  }
+
+  useEffect(() => {
+    const handlePortalOpen = () => openPortal();
+
+    window.addEventListener('digital-mirror:open-portal', handlePortalOpen);
+
+    return () => {
+      window.removeEventListener('digital-mirror:open-portal', handlePortalOpen);
+    };
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -144,12 +167,12 @@ export default function PortalScene() {
     const drawEmbers = () => {
       if (!ink) return;
       ink.clearRect(0, 0, width, height);
-      const cover = Math.max(width / 1672, height / 941);
-      const offsetX = (width - 1672 * cover) * (width <= 760 ? .83 : .5);
-      const offsetY = (height - 941 * cover) * .5;
-      const cx = 1672 * .614 * cover + offsetX;
-      const cy = 941 * .378 * cover + offsetY;
-      const scale = 941 * cover;
+      const cover = Math.max(width / 1655, height / 950);
+      const offsetX = (width - 1655 * cover) * .5;
+      const offsetY = (height - 950 * cover) * .5;
+      const cx = 1655 * .5 * cover + offsetX;
+      const cy = 950 * .47 * cover + offsetY;
+      const scale = 950 * cover;
       ink.globalCompositeOperation = 'lighter';
       for (const spark of sparks) {
         const life = (spark.phase + elapsed * spark.speed) % 1;
@@ -216,9 +239,9 @@ export default function PortalScene() {
       const bounds = canvas.getBoundingClientRect();
       pointerX = (event.clientX - bounds.left) / bounds.width - .5;
       pointerY = (event.clientY - bounds.top) / bounds.height - .5;
-      const cover = Math.max(bounds.width / 1672, bounds.height / 941);
-      const cx = 1672 * .614 * cover + (bounds.width - 1672 * cover) * (bounds.width <= 760 ? .83 : .5);
-      const cy = 941 * .378 * cover + (bounds.height - 941 * cover) * .5;
+      const cover = Math.max(bounds.width / 1655, bounds.height / 950);
+      const cx = 1655 * .5 * cover + (bounds.width - 1655 * cover) * .5;
+      const cy = 950 * .47 * cover + (bounds.height - 950 * cover) * .5;
       const distance = Math.hypot(event.clientX - bounds.left - cx, event.clientY - bounds.top - cy);
       const proximity = Math.max(0, 1 - distance / (bounds.width * .62));
       targetPull = Math.min(.82, proximity * proximity * .82);
@@ -239,7 +262,7 @@ export default function PortalScene() {
       resize();
       sync();
     };
-    image.src = '/portal.png';
+    image.src = '/mirror-portal.png';
     const observer = new ResizeObserver(resize);
     observer.observe(canvas);
     host.addEventListener('pointermove', move);
@@ -280,13 +303,13 @@ export default function PortalScene() {
   return <>
     <div className="home-art" aria-hidden="true"><canvas ref={canvasRef} className="portal-canvas" /><canvas ref={emberRef} className="portal-embers" /></div>
     <div className="portal-interaction">
-      <button disabled={paused} aria-pressed={energized} onClick={() => { energizedRef.current = !energized; setEnergized(!energized); }}>
+      <button aria-pressed={energized} onClick={togglePortalEnergy}>
         <span aria-hidden="true">✦</span> {energized ? 'Release the portal' : 'Awaken the portal'}
       </button>
       <span className="portal-hint">Hover to draw it in · press to send a ripple</span>
     </div>
-    <button className="motion-toggle" onClick={() => setPaused(value => !value)} aria-pressed={paused}>
-      {paused ? 'Resume animation' : 'Pause animation'}
+    <button className="motion-toggle" disabled={!opened} onClick={() => setPaused(value => !value)} aria-pressed={paused}>
+      {!opened ? 'Portal closed' : paused ? 'Resume animation' : 'Pause animation'}
     </button>
-  </>;
+  </>
 }

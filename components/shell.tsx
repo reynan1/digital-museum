@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useRef,
@@ -56,6 +57,27 @@ const MusicContext = createContext({
   toggle: () => {},
 });
 
+type VoiceContextValue = {
+  voiceMuted: boolean;
+  toggleVoice: () => void;
+  speak: (text: string, options?: VoiceSpeakOptions) => void;
+};
+
+type VoiceSpeakOptions = {
+  onStart?: () => void;
+  onEnd?: () => void;
+};
+
+const VoiceContext = createContext<VoiceContextValue>({
+  voiceMuted: true,
+  toggleVoice: () => {},
+  speak: () => {},
+});
+
+export function useVoice() {
+  return useContext(VoiceContext);
+}
+
 function format(value: number) {
   return `${Math.floor(value / 60)}:${String(Math.floor(value % 60)).padStart(
     2,
@@ -79,7 +101,139 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const pendingPlay = useRef(false);
   const speechRequest = useRef<AbortController | null>(null);
   const speechAudio = useRef<HTMLAudioElement | null>(null);
+  const speechLifecycle = useRef<VoiceSpeakOptions | null>(null);
   const lastSpoken = useRef({ text: '', at: 0 });
+
+  const finishSpeech = useCallback(() => {
+    const onEnd = speechLifecycle.current?.onEnd;
+    speechLifecycle.current = null;
+    onEnd?.();
+  }, []);
+
+  const stopSpeech = useCallback(() => {
+    speechRequest.current?.abort();
+    speechAudio.current?.pause();
+    window.speechSynthesis?.cancel();
+    finishSpeech();
+  }, [finishSpeech]);
+
+  const speakWithBrowser = useCallback(
+    (text: string) => {
+      if (
+        typeof window === 'undefined' ||
+        !('speechSynthesis' in window) ||
+        typeof SpeechSynthesisUtterance === 'undefined'
+      ) {
+        return false;
+      }
+
+      const fallback = new SpeechSynthesisUtterance(text);
+      fallback.rate = 0.96;
+      fallback.pitch = 1.02;
+
+      const finishFallback = () => {
+        fallback.onend = null;
+        fallback.onerror = null;
+        finishSpeech();
+      };
+
+      fallback.onend = finishFallback;
+      fallback.onerror = finishFallback;
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(fallback);
+      return true;
+    },
+    [finishSpeech],
+  );
+
+  const speak = useCallback(
+    (text: string, options?: VoiceSpeakOptions) => {
+      const cleanText = text.replace(/\s+/g, ' ').trim();
+
+      if (!cleanText || cleanText.length > 120 || voiceMuted) {
+        stopSpeech();
+        return;
+      }
+
+      const now = Date.now();
+
+      if (
+        lastSpoken.current.text === cleanText &&
+        now - lastSpoken.current.at < 1300
+      ) {
+        return;
+      }
+
+      lastSpoken.current = {
+        text: cleanText,
+        at: now,
+      };
+
+      stopSpeech();
+      setVoiceError('');
+      speechLifecycle.current = options || null;
+      options?.onStart?.();
+
+      speechRequest.current = new AbortController();
+      const signal = speechRequest.current.signal;
+
+      void fetch('/api/speech', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text: cleanText }),
+        signal,
+      })
+        .then(async (response) => {
+          if (!response.ok) {
+            const details = await response.json().catch(() => ({}));
+
+            throw new Error(
+              response.status === 503
+                ? 'Add your ElevenLabs API key and restart the server.'
+                : details.providerMessage ||
+                    'ElevenLabs speech failed. Check the server or voice ID.',
+            );
+          }
+
+          const url = URL.createObjectURL(await response.blob());
+
+          if (signal.aborted) {
+            URL.revokeObjectURL(url);
+            return;
+          }
+
+          const speechTrack = new Audio(url);
+          speechAudio.current = speechTrack;
+          speechTrack.onended = () => {
+            if (speechAudio.current === speechTrack) {
+              finishSpeech();
+            }
+            URL.revokeObjectURL(url);
+          };
+
+          await speechTrack.play();
+        })
+        .catch((speechError) => {
+          if (signal.aborted) {
+            return;
+          }
+
+          if (speakWithBrowser(cleanText)) {
+            return;
+          }
+
+          finishSpeech();
+          setVoiceError(
+            speechError instanceof Error
+              ? speechError.message
+              : 'ElevenLabs speech failed.',
+          );
+        });
+    },
+    [finishSpeech, speakWithBrowser, stopSpeech, voiceMuted],
+  );
 
   useEffect(() => {
     const finePointer = window.matchMedia(
@@ -156,10 +310,10 @@ export function Shell({ children }: { children: React.ReactNode }) {
       }
 
       const control = target.closest(
-        'a,button,[role="link"],[data-speak]',
+        'a,button,[role="link"],[data-speak],h1,h2,h3,h4,h5,h6,p,li,dt,dd,summary,label,span,strong,small,em,figcaption',
       );
 
-      if (!control) {
+      if (!control || control.getAttribute('aria-hidden') === 'true') {
         return;
       }
 
@@ -176,100 +330,24 @@ export function Shell({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      const now = Date.now();
-
-      if (
-        lastSpoken.current.text === text &&
-        now - lastSpoken.current.at < 1300
-      ) {
-        return;
-      }
-
-      lastSpoken.current = {
-        text,
-        at: now,
-      };
-
-      if (voiceMuted) {
-        speechRequest.current?.abort();
-        speechAudio.current?.pause();
-        window.speechSynthesis?.cancel();
-        return;
-      }
-
-      speechRequest.current?.abort();
-      speechAudio.current?.pause();
-      setVoiceError('');
-
-      speechRequest.current = new AbortController();
-      const signal = speechRequest.current.signal;
-
-      void fetch('/api/speech', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ text }),
-        signal,
-      })
-        .then(async (response) => {
-          if (!response.ok) {
-            const details = await response.json().catch(() => ({}));
-
-            throw new Error(
-              response.status === 503
-                ? 'Add your ElevenLabs API key and restart the server.'
-                : details.providerMessage ||
-                    'ElevenLabs speech failed. Check the server or voice ID.',
-            );
-          }
-
-          const url = URL.createObjectURL(await response.blob());
-
-          if (signal.aborted) {
-            URL.revokeObjectURL(url);
-            return;
-          }
-
-          const speechTrack = new Audio(url);
-          speechAudio.current = speechTrack;
-          speechTrack.onended = () => {
-            URL.revokeObjectURL(url);
-          };
-
-          await speechTrack.play();
-        })
-        .catch((speechError) => {
-          if (signal.aborted) {
-            return;
-          }
-
-          setVoiceError(
-            speechError instanceof Error
-              ? speechError.message
-              : 'ElevenLabs speech failed.',
-          );
-        });
+      speak(text);
     }
 
     window.addEventListener('pointerover', onPointerOver);
 
     return () => {
       window.removeEventListener('pointerover', onPointerOver);
-      speechRequest.current?.abort();
-      speechAudio.current?.pause();
+      stopSpeech();
     };
-  }, [voiceMuted]);
+  }, [speak, stopSpeech]);
 
   useEffect(() => {
     if (!voiceMuted) {
       return;
     }
 
-    speechRequest.current?.abort();
-    speechAudio.current?.pause();
-    window.speechSynthesis?.cancel();
-  }, [voiceMuted]);
+    stopSpeech();
+  }, [stopSpeech, voiceMuted]);
 
   async function play() {
     try {
@@ -371,7 +449,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const currentTrack = tracks[track];
 
   return (
-    <MusicContext.Provider value={{ playing, toggle }}>
+      <VoiceContext.Provider value={{ voiceMuted, toggleVoice, speak }}>
+        <MusicContext.Provider value={{ playing, toggle }}>
       <div className="pointer-lamp" aria-hidden="true">
         <Lightbulb size={24} />
       </div>
@@ -542,7 +621,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
           </span>
         )}
       </footer>
-    </MusicContext.Provider>
+        </MusicContext.Provider>
+      </VoiceContext.Provider>
   );
 }
 

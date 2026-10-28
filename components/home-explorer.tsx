@@ -16,7 +16,8 @@ export default function HomeExplorer() {
 
   if (isHidden) return <button className="explorer-restore" onClick={() => setIsHidden(false)} aria-label="Show decade explorer"><ChevronUp size={16} /> Explore decades</button>;
 
-  return <section className="home-explorer" aria-label="Choose your decade" style={{ '--era-color': era.color } as CSSProperties}>
+  return <>
+  <section className="home-explorer" aria-label="Choose your decade" style={{ '--era-color': era.color } as CSSProperties}>
     <div className="explorer-heading"><span><Sparkles size={14} /> YOUR NEXT MEMORY</span><div className="explorer-actions"><button onClick={surprise}><Shuffle size={14} /> Surprise me</button><button className="explorer-hide" onClick={() => setIsHidden(true)} aria-label="Hide decade explorer" title="Hide explorer"><ChevronDown size={16} /></button></div></div>
     <div className="era-selector" role="group" aria-label="Decade preview">
       {decades.map((decade, index) => <button key={decade.id} aria-pressed={selected === index} aria-controls="era-preview" onClick={() => setSelected(index)}><span className="era-dot" />{decade.id}</button>)}
@@ -29,5 +30,6 @@ export default function HomeExplorer() {
     </div>
     <Link className="era-explore-link" href={`/galleries/${era.id}`}><span>Step into the <strong>{era.id}</strong></span><ArrowUpRight size={19} /></Link>
     <p className="explorer-caption">Pick a decade. Find a little of yourself.</p>
-  </section>;
+  </section>
+  </>
 }

@@ -221,6 +221,8 @@ button:disabled {
   min-height: 850px;
   height: 100svh;
   padding: 130px 7% 155px;
+  --home-left-gutter: 7vw;
+  --hero-copy-width: min(43.86vw, 670px);
 }
 
 .home-art,.about-art,.ambient-art {
@@ -232,15 +234,30 @@ button:disabled {
   background-position: center;
 }
 
+.home-art {
+   background-image: url('/mirror-portal.png');
+}
+
+.home-art:before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 23% 34% at 50% 47%, #7eefff1c 0%, #43d1ec0b 42%, transparent 75%),
+    radial-gradient(ellipse 17% 27% at 50% 53%, #ffc66c1b 0%, transparent 72%);
+  mix-blend-mode: screen;
+}
+
 .home-art:after {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg,#07111dd9 0%,#07111d80 34%,transparent 68%),linear-gradient(0deg,#07111def,transparent 35%);
+  background: linear-gradient(90deg,#07111dec 0%,#07111db8 29%,#07111d35 50%,transparent 73%),linear-gradient(0deg,#07111dd4,transparent 38%);
 }
 
 .hero-copy {
-  width: 51%;
+  width: var(--hero-copy-width);
   max-width: 670px;
 }
 
@@ -1159,6 +1176,8 @@ input[type=range] {
 @media (min-width:1600px) {
   .home {
     padding-left: 12%;
+    --home-left-gutter: 12vw;
+    --hero-copy-width: min(41.31vw, 690px);
   }
 
   .hero-copy {
@@ -1716,12 +1735,13 @@ input[type=range] {
   .home-art {
     bottom: auto;
     height: 65%;
-    background-position: 83% center;
+    background-position: center;
   }
 
   .home-art:after {
     background: linear-gradient(0deg,#07111d 0%,#07111d66 35%,transparent 75%);
   }
+
 }
 
 /* A small, tactile time machine layered over the original portal artwork. */
@@ -2001,6 +2021,103 @@ input[type=range] {
   }
 }
 
+@keyframes memory-walker-travel {
+  0%, 2% {
+    left: -22px;
+    transform: scaleX(1);
+  }
+
+  43% {
+    left: calc(100% - 2px);
+    transform: scaleX(1);
+  }
+
+  48%, 52% {
+    left: calc(100% - 2px);
+    transform: scaleX(-1);
+  }
+
+  93% {
+    left: -22px;
+    transform: scaleX(-1);
+  }
+
+  98%, 100% {
+    left: -22px;
+    transform: scaleX(1);
+  }
+}
+
+@keyframes guide-float {
+  0%, 100% {
+    transform: translateY(0) rotate(-1deg);
+  }
+
+  50% {
+    transform: translateY(-7px) rotate(1deg);
+  }
+}
+
+@keyframes portal-opening {
+  from {
+    box-shadow: 0 0 12px #f6b24c99, inset 0 0 18px #f6b24c55;
+  }
+
+  to {
+    box-shadow: 0 0 38px #9be9f0cc, inset 0 0 26px #b9eaf277;
+  }
+}
+
+@keyframes walker-bob {
+  0%, 100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-2px);
+  }
+}
+
+@keyframes walker-arm-back {
+  0%, 100% {
+    transform: rotate(28deg);
+  }
+
+  50% {
+    transform: rotate(-28deg);
+  }
+}
+
+@keyframes walker-arm-front {
+  0%, 100% {
+    transform: rotate(-28deg);
+  }
+
+  50% {
+    transform: rotate(28deg);
+  }
+}
+
+@keyframes walker-leg-back {
+  0%, 100% {
+    transform: rotate(22deg);
+  }
+
+  50% {
+    transform: rotate(-24deg);
+  }
+}
+
+@keyframes walker-leg-front {
+  0%, 100% {
+    transform: rotate(-24deg);
+  }
+
+  50% {
+    transform: rotate(22deg);
+  }
+}
+
 @media (min-width:1600px) {
   .home-explorer {
     right: 12%;
@@ -2122,7 +2239,7 @@ input[type=range] {
 
 @media (max-width:760px) {
   .home .home-art:after {
-    background: linear-gradient(0deg,#07111d 0%,#07111d80 40%,#07111d65 72%,#07111d10 100%);
+    background: linear-gradient(90deg,#07111dd5 0%,#07111d70 42%,transparent 78%),linear-gradient(0deg,#07111d 0%,#07111d80 40%,#07111d65 72%,#07111d10 100%);
   }
 
   .home .hero-copy>.eyebrow {
@@ -2297,6 +2414,222 @@ input[type=range] {
   max-width: 390px;
 }
 
+.hero-guide {
+  position: absolute;
+  top: clamp(190px, calc(50% - 180px), 300px);
+  right: clamp(18px, var(--home-left-gutter), 96px);
+  z-index: 2;
+  width: var(--host-width);
+  height: min(620px, 68svh);
+  pointer-events: none;
+  --host-width: clamp(350px, 35vw, 500px);
+}
+
+.hero-welcome-message {
+  position: absolute;
+  top: 18px;
+  left: -38px;
+  z-index: 3;
+  width: min(285px, 36vw);
+  padding: 13px 16px 14px;
+  border: 1px solid #f5cb8b88;
+  border-radius: 16px;
+  background: linear-gradient(145deg, #162c3be8, #07131fe8);
+  box-shadow: 0 14px 34px #0006, 0 0 22px #f5bd6630, inset 0 1px #ffffff16;
+  backdrop-filter: blur(10px);
+  color: #f8e0ba;
+  font: 23px/1.05 'Caveat', cursive;
+  opacity: 0;
+  transform: translateY(9px) scale(.96);
+  transition: opacity .25s ease, transform .25s ease;
+}
+
+.hero-welcome-message:after {
+  content: '';
+  position: absolute;
+  right: 34px;
+  bottom: -10px;
+  width: 18px;
+  height: 18px;
+  border-right: 1px solid #f5cb8b88;
+  border-bottom: 1px solid #f5cb8b88;
+  background: #102536;
+  transform: rotate(45deg);
+}
+
+.hero-welcome-message.is-visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.hero-host-girl {
+  position: absolute;
+  right: 0;
+  bottom: -50;
+  z-index: 1;
+  width: 100%;
+  max-width: none;
+  filter: drop-shadow(0 18px 18px #0007) drop-shadow(0 0 25px #f5bd6640);
+  pointer-events: none;
+  will-change: transform, opacity, filter;
+}
+
+.hero-host-girl-absorbed {
+  z-index: 2;
+}
+
+/* A tiny game-like walk cycle gives the portal a little life without competing with the artwork. */
+
+.memory-walker-track {
+  position: absolute;
+  left: 0;
+  bottom: -78px;
+  width: min(430px, 100%);
+  height: 66px;
+  pointer-events: none;
+}
+
+.walker-path {
+  position: absolute;
+  right: 0;
+  bottom: 6px;
+  left: 0;
+  height: 1px;
+  background: repeating-linear-gradient(90deg, #f4c77b80 0 5px, transparent 5px 14px);
+  opacity: .55;
+}
+
+.walker-path:after {
+  content: '';
+  position: absolute;
+  top: -3px;
+  right: 0;
+  width: 7px;
+  height: 7px;
+  border: 1px solid #f4c77b99;
+  border-radius: 50%;
+  box-shadow: 0 0 12px #f4c77b99;
+}
+
+.memory-walker {
+  position: absolute;
+  bottom: 7px;
+  left: -22px;
+  width: 24px;
+  height: 52px;
+  transform-origin: center bottom;
+  animation: memory-walker-travel 12s linear infinite;
+}
+
+.walker-shadow {
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 4px;
+  border-radius: 50%;
+  background: #00000066;
+  filter: blur(2px);
+}
+
+.walker-figure {
+  position: absolute;
+  inset: 0;
+  transform-origin: center bottom;
+  animation: walker-bob .32s steps(2, end) infinite;
+}
+
+.walker-head,
+.walker-torso,
+.walker-arm,
+.walker-leg {
+  position: absolute;
+  display: block;
+}
+
+.walker-head {
+  top: 1px;
+  left: 7px;
+  width: 11px;
+  height: 12px;
+  border: 1px solid #ffe1a9;
+  border-radius: 48% 48% 45% 45%;
+  background: #d87b55;
+  box-shadow: 0 0 8px #f5b85c66;
+}
+
+.walker-hair {
+  position: absolute;
+  top: -3px;
+  left: -2px;
+  width: 13px;
+  height: 9px;
+  border-radius: 60% 55% 35% 25%;
+  background: #15202c;
+  transform: rotate(-8deg);
+}
+
+.walker-torso {
+  top: 14px;
+  left: 6px;
+  width: 13px;
+  height: 18px;
+  border: 1px solid #b9eaf2;
+  border-radius: 4px 4px 3px 3px;
+  background: linear-gradient(135deg, #2d7d89, #164c64);
+  box-shadow: 0 0 9px #61d1dc4d;
+}
+
+.walker-arm {
+  top: 16px;
+  width: 4px;
+  height: 17px;
+  border: 1px solid #d87b55;
+  border-radius: 5px;
+  background: #d87b55;
+  transform-origin: top center;
+}
+
+.walker-arm-back {
+  left: 3px;
+  animation: walker-arm-back .38s steps(2, end) infinite;
+}
+
+.walker-arm-front {
+  left: 18px;
+  animation: walker-arm-front .38s steps(2, end) infinite;
+}
+
+.walker-leg {
+  top: 30px;
+  width: 5px;
+  height: 20px;
+  border: 1px solid #1c2430;
+  border-radius: 4px 4px 2px 2px;
+  background: #111923;
+  transform-origin: top center;
+}
+
+.walker-leg-back {
+  left: 6px;
+  animation: walker-leg-back .38s steps(2, end) infinite;
+}
+
+.walker-leg-front {
+  left: 14px;
+  animation: walker-leg-front .38s steps(2, end) infinite;
+}
+
+.walker-caption {
+  position: absolute;
+  bottom: -16px;
+  left: 0;
+  color: #e9c78e99;
+  font-size: 8px;
+  letter-spacing: 1.8px;
+  white-space: nowrap;
+}
+
 .memory-reveal {
   animation: memory-arrive .35s ease-out;
   margin-top: 17px;
@@ -2351,6 +2684,12 @@ input[type=range] {
   left: 130%;
 }
 
+.interactive-hero .portal-button.opening {
+  border-color: #b9eaf2;
+  color: #fff1d1;
+  animation: portal-opening .9s ease-in-out infinite alternate;
+}
+
 @keyframes sun-memory {
   0% {
     transform: rotate(-70deg) scale(.8);
@@ -2387,7 +2726,22 @@ input[type=range] {
   }
 }
 
+@media (min-width:761px) and (max-width:1100px) {
+  .hero-guide {
+    top: clamp(220px, calc(50% - 130px), 300px);
+    right: 4vw;
+    width: var(--host-width);
+    height: min(540px, 65svh);
+    --host-width: clamp(280px, 34vw, 380px);
+  }
+}
+
 @media (max-width:760px) {
+  .home .hero-copy {
+    position: relative;
+    z-index: 3;
+  }
+
   .hero-title-wrap {
     padding-right: 53px;
   }
@@ -2406,6 +2760,32 @@ input[type=range] {
     text-align: center;
     line-height: 1.4;
   }
+
+  .hero-guide {
+    top: 195px;
+    right: -8px;
+    left: auto;
+    width: var(--host-width);
+    height: 370px;
+    --host-width: min(250px, 64vw);
+  }
+
+  .hero-welcome-message {
+    top: 0;
+    left: -4px;
+    width: min(240px, 65vw);
+    padding: 10px 13px 11px;
+    font-size: 19px;
+  }
+
+  .memory-walker-track {
+    bottom: -72px;
+    width: calc(100% - 14px);
+  }
+
+  .walker-caption {
+    font-size: 7px;
+  }
 }
 
 @media (prefers-reduced-motion:reduce) {
@@ -2417,9 +2797,27 @@ input[type=range] {
     display: none;
   }
 
+  .hero-welcome-message {
+    transition: none;
+  }
+
   .memory-sun:hover .memory-sun-icon {
     transform: none;
   }
+
+  .memory-walker {
+    left: 43%;
+    animation: none;
+  }
+
+  .walker-figure,
+  .walker-arm-back,
+  .walker-arm-front,
+  .walker-leg-back,
+  .walker-leg-front {
+    animation: none;
+  }
+
 }
 
 @media (hover:none),(pointer:coarse) {
