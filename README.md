@@ -2,6 +2,8 @@
 
 A complete Next.js App Router + TypeScript application inspired by the supplied four-view Filipino popular-culture reference. Uses responsive CSS, reusable components, Lucide icons, and locally bundled fonts and artwork.
 
+Live Demo: [digital-museum-livid.vercel.app](https://digital-museum-livid.vercel.app/)
+
 ## Run
 
 Requires Node.js 20.9+ and npm.

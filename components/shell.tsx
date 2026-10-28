@@ -1,22 +1,558 @@
 'use client';
+
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { createContext, useContext, useEffect, useRef, useState } from 'react';
-import { Sun, Lightbulb, Music2, Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Menu, X } from 'lucide-react';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
+import {
+  Lightbulb,
+  Menu,
+  Music2,
+  Pause,
+  Play,
+  SkipBack,
+  SkipForward,
+  Sun,
+  Volume2,
+  VolumeOff,
+  VolumeX,
+  X,
+} from 'lucide-react';
 import MemoryGame from './memory-game';
-const tracks=[{title:'Golden-hour Memories',file:'golden-hour',era:'Original instrumental · 2000s mood'},{title:'Postcards from Manila',file:'postcards',era:'Original instrumental · 1990s mood'},{title:'Neon Homecoming',file:'neon',era:'Original instrumental · 2010s mood'}];
-const MusicContext=createContext({playing:false,toggle:()=>{}});
-const format=(v:number)=>`${Math.floor(v/60)}:${String(Math.floor(v%60)).padStart(2,'0')}`;
-export function Shell({children}:{children:React.ReactNode}){
- const pathname=usePathname();const [menu,setMenu]=useState(false);const [playing,setPlaying]=useState(false);const [track,setTrack]=useState(0);const [time,setTime]=useState(0);const [duration,setDuration]=useState(0);const [volume,setVolume]=useState(.5);const [error,setError]=useState('');const audio=useRef<HTMLAudioElement>(null);const pendingPlay=useRef(false);
- useEffect(()=>{const finePointer=window.matchMedia('(hover: hover) and (pointer: fine)');if(!finePointer.matches)return;const update=(event:PointerEvent)=>{document.documentElement.style.setProperty('--pointer-x',`${event.clientX}px`);document.documentElement.style.setProperty('--pointer-y',`${event.clientY}px`);document.documentElement.classList.add('pointer-lamp-active')};window.addEventListener('pointermove',update,{passive:true});return()=>{window.removeEventListener('pointermove',update);document.documentElement.classList.remove('pointer-lamp-active')}},[]);
- useEffect(()=>{setMenu(false)},[pathname]);
- useEffect(()=>{const el=audio.current;if(!el)return;const sync=()=>{if(Number.isFinite(el.duration))setDuration(el.duration);setTime(el.currentTime)};sync();el.addEventListener('loadedmetadata',sync);el.addEventListener('durationchange',sync);return()=>{el.removeEventListener('loadedmetadata',sync);el.removeEventListener('durationchange',sync)}},[track]);
- useEffect(()=>{if(audio.current)audio.current.volume=volume},[volume]);
- async function play(){try{await audio.current?.play();setError('')}catch{setError('Audio could not start. Please try again.');setPlaying(false)}}
- function toggle(){if(audio.current?.paused)void play();else audio.current?.pause()}
- function next(delta:number){pendingPlay.current=playing;setTime(0);setTrack(v=>(v+delta+tracks.length)%tracks.length)}
- return <MusicContext.Provider value={{playing,toggle}}><div className="pointer-lamp" aria-hidden="true"><Lightbulb size={24}/></div><a className="skip-link" href="#main-content">Skip to content</a><header className="site-header"><Link href="/" className="brand" aria-label="Digital Mirror home"><Sun/><span>DIGITAL<br/>MIRROR</span></Link><nav className={menu?'navigation open':'navigation'} aria-label="Main navigation">{[['/','Home'],['/about','About'],['/galleries','Galleries'],['/exam','Quiz'],['/survey','Survey']].map(([href,label])=><Link key={href} href={href} aria-current={(href==='/'?pathname===href:pathname.startsWith(href))?'page':undefined}>{label}</Link>)}</nav><button className="music-button" onClick={toggle}><Music2 size={17}/><span>{playing?'Pause Music':'Play Music'}</span></button><button className="menu-button icon-button" aria-label={menu?'Close navigation':'Open navigation'} aria-expanded={menu} onClick={()=>setMenu(!menu)}>{menu?<X/>:<Menu/>}</button></header>{children}<MemoryGame/><footer className="music-player" aria-label="Music player"><div className={`record ${playing?'spinning':''}`}><span>DM</span></div><div className="track-info"><strong>{tracks[track].title}</strong><span>{tracks[track].era}</span></div><div className="transport"><button className="icon-button" aria-label="Previous track" onClick={()=>next(-1)}><SkipBack size={17}/></button><button className="play-button" aria-label={playing?'Pause':'Play'} onClick={toggle}>{playing?<Pause size={18}/>:<Play size={18}/>}</button><button className="icon-button" aria-label="Next track" onClick={()=>next(1)}><SkipForward size={17}/></button></div><div className="seek-control"><span>{format(time)}</span><input aria-label="Seek playback" type="range" min="0" max={duration||1} step=".1" value={time} onChange={e=>{if(audio.current){audio.current.currentTime=Number(e.target.value);setTime(Number(e.target.value))}}}/><span>{format(duration)}</span></div><div className="volume-control"><button className="icon-button" aria-label={volume===0?'Unmute':'Mute'} onClick={()=>setVolume(volume===0?.5:0)}>{volume===0?<VolumeX size={17}/>:<Volume2 size={17}/>}</button><input aria-label="Volume" type="range" min="0" max="1" step=".01" value={volume} onChange={e=>setVolume(Number(e.target.value))}/></div><span className="player-label">THE SOUND OF A MEMORY</span><audio ref={audio} src={`/audio/${tracks[track].file}.wav`} preload="metadata" onLoadedMetadata={()=>{setDuration(audio.current?.duration||0);if(pendingPlay.current){pendingPlay.current=false;void play()}}} onTimeUpdate={()=>setTime(audio.current?.currentTime||0)} onPlay={()=>setPlaying(true)} onPause={()=>setPlaying(false)} onEnded={()=>{pendingPlay.current=true;setTrack(v=>(v+1)%tracks.length)}} onError={()=>setError('The audio file is unavailable.')}/>{error&&<span className="audio-error" role="alert">{error}</span>}</footer></MusicContext.Provider>
-}
-export function ListenButton(){const {playing,toggle}=useContext(MusicContext);return <button className="text-link" onClick={toggle}><Music2 size={16}/>{playing?'Pause the soundtrack':'Play the soundtrack'}</button>}
 
+const tracks = [
+  {
+    title: 'Golden-hour Memories',
+    file: 'golden-hour',
+    era: 'Original instrumental Ã‚Â· 2000s mood',
+  },
+  {
+    title: 'Postcards from Manila',
+    file: 'postcards',
+    era: 'Original instrumental Ã‚Â· 1990s mood',
+  },
+  {
+    title: 'Neon Homecoming',
+    file: 'neon',
+    era: 'Original instrumental Ã‚Â· 2010s mood',
+  },
+];
+
+const navigationItems = [
+  { href: '/', label: 'Home' },
+  { href: '/about', label: 'About' },
+  { href: '/galleries', label: 'Galleries' },
+  { href: '/exam', label: 'Quiz' },
+  { href: '/survey', label: 'Survey' },
+];
+
+const MusicContext = createContext({
+  playing: false,
+  toggle: () => {},
+});
+
+function format(value: number) {
+  return `${Math.floor(value / 60)}:${String(Math.floor(value % 60)).padStart(
+    2,
+    '0',
+  )}`;
+}
+
+export function Shell({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const [menu, setMenu] = useState(false);
+  const [voiceMuted, setVoiceMuted] = useState(true);
+  const [voiceError, setVoiceError] = useState('');
+  const [playing, setPlaying] = useState(false);
+  const [track, setTrack] = useState(0);
+  const [time, setTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [volume, setVolume] = useState(0.5);
+  const [error, setError] = useState('');
+
+  const audio = useRef<HTMLAudioElement>(null);
+  const pendingPlay = useRef(false);
+  const speechRequest = useRef<AbortController | null>(null);
+  const speechAudio = useRef<HTMLAudioElement | null>(null);
+  const lastSpoken = useRef({ text: '', at: 0 });
+
+  useEffect(() => {
+    const finePointer = window.matchMedia(
+      '(hover: hover) and (pointer: fine)',
+    );
+
+    if (!finePointer.matches) {
+      return;
+    }
+
+    const updatePointerPosition = (event: PointerEvent) => {
+      document.documentElement.style.setProperty(
+        '--pointer-x',
+        `${event.clientX}px`,
+      );
+      document.documentElement.style.setProperty(
+        '--pointer-y',
+        `${event.clientY}px`,
+      );
+      document.documentElement.classList.add('pointer-lamp-active');
+    };
+
+    window.addEventListener('pointermove', updatePointerPosition, {
+      passive: true,
+    });
+
+    return () => {
+      window.removeEventListener('pointermove', updatePointerPosition);
+      document.documentElement.classList.remove('pointer-lamp-active');
+    };
+  }, []);
+
+  useEffect(() => {
+    setMenu(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    const element = audio.current;
+
+    if (!element) {
+      return;
+    }
+
+    const syncAudioState = () => {
+      if (Number.isFinite(element.duration)) {
+        setDuration(element.duration);
+      }
+
+      setTime(element.currentTime);
+    };
+
+    syncAudioState();
+    element.addEventListener('loadedmetadata', syncAudioState);
+    element.addEventListener('durationchange', syncAudioState);
+
+    return () => {
+      element.removeEventListener('loadedmetadata', syncAudioState);
+      element.removeEventListener('durationchange', syncAudioState);
+    };
+  }, [track]);
+
+  useEffect(() => {
+    if (audio.current) {
+      audio.current.volume = volume;
+    }
+  }, [volume]);
+
+  useEffect(() => {
+    function onPointerOver(event: PointerEvent) {
+      const target = event.target;
+
+      if (!(target instanceof Element)) {
+        return;
+      }
+
+      const control = target.closest(
+        'a,button,[role="link"],[data-speak]',
+      );
+
+      if (!control) {
+        return;
+      }
+
+      const text = (
+        control.getAttribute('data-speak') ||
+        control.getAttribute('aria-label') ||
+        control.textContent ||
+        ''
+      )
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      if (!text || text.length > 120) {
+        return;
+      }
+
+      const now = Date.now();
+
+      if (
+        lastSpoken.current.text === text &&
+        now - lastSpoken.current.at < 1300
+      ) {
+        return;
+      }
+
+      lastSpoken.current = {
+        text,
+        at: now,
+      };
+
+      if (voiceMuted) {
+        speechRequest.current?.abort();
+        speechAudio.current?.pause();
+        window.speechSynthesis?.cancel();
+        return;
+      }
+
+      speechRequest.current?.abort();
+      speechAudio.current?.pause();
+      setVoiceError('');
+
+      speechRequest.current = new AbortController();
+      const signal = speechRequest.current.signal;
+
+      void fetch('/api/speech', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text }),
+        signal,
+      })
+        .then(async (response) => {
+          if (!response.ok) {
+            const details = await response.json().catch(() => ({}));
+
+            throw new Error(
+              response.status === 503
+                ? 'Add your ElevenLabs API key and restart the server.'
+                : details.providerMessage ||
+                    'ElevenLabs speech failed. Check the server or voice ID.',
+            );
+          }
+
+          const url = URL.createObjectURL(await response.blob());
+
+          if (signal.aborted) {
+            URL.revokeObjectURL(url);
+            return;
+          }
+
+          const speechTrack = new Audio(url);
+          speechAudio.current = speechTrack;
+          speechTrack.onended = () => {
+            URL.revokeObjectURL(url);
+          };
+
+          await speechTrack.play();
+        })
+        .catch((speechError) => {
+          if (signal.aborted) {
+            return;
+          }
+
+          setVoiceError(
+            speechError instanceof Error
+              ? speechError.message
+              : 'ElevenLabs speech failed.',
+          );
+        });
+    }
+
+    window.addEventListener('pointerover', onPointerOver);
+
+    return () => {
+      window.removeEventListener('pointerover', onPointerOver);
+      speechRequest.current?.abort();
+      speechAudio.current?.pause();
+    };
+  }, [voiceMuted]);
+
+  useEffect(() => {
+    if (!voiceMuted) {
+      return;
+    }
+
+    speechRequest.current?.abort();
+    speechAudio.current?.pause();
+    window.speechSynthesis?.cancel();
+  }, [voiceMuted]);
+
+  async function play() {
+    try {
+      await audio.current?.play();
+      setError('');
+    } catch {
+      setError('Audio could not start. Please try again.');
+      setPlaying(false);
+    }
+  }
+
+  function toggle() {
+    if (audio.current?.paused) {
+      void play();
+      return;
+    }
+
+    audio.current?.pause();
+  }
+
+  function next(delta: number) {
+    pendingPlay.current = playing;
+    setTime(0);
+    setTrack((value) => {
+      return (value + delta + tracks.length) % tracks.length;
+    });
+  }
+
+  function toggleVoice() {
+    setVoiceMuted(!voiceMuted);
+  }
+
+  function toggleMenu() {
+    setMenu(!menu);
+  }
+
+  function goToPreviousTrack() {
+    next(-1);
+  }
+
+  function goToNextTrack() {
+    next(1);
+  }
+
+  function handleSeekChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const nextTime = Number(event.target.value);
+
+    if (audio.current) {
+      audio.current.currentTime = nextTime;
+      setTime(nextTime);
+    }
+  }
+
+  function toggleVolume() {
+    if (volume === 0) {
+      setVolume(0.5);
+      return;
+    }
+
+    setVolume(0);
+  }
+
+  function handleVolumeChange(event: React.ChangeEvent<HTMLInputElement>) {
+    setVolume(Number(event.target.value));
+  }
+
+  function handleLoadedMetadata() {
+    setDuration(audio.current?.duration || 0);
+
+    if (pendingPlay.current) {
+      pendingPlay.current = false;
+      void play();
+    }
+  }
+
+  function handleTimeUpdate() {
+    setTime(audio.current?.currentTime || 0);
+  }
+
+  function handlePlay() {
+    setPlaying(true);
+  }
+
+  function handlePause() {
+    setPlaying(false);
+  }
+
+  function handleEnded() {
+    pendingPlay.current = true;
+    setTrack((value) => {
+      return (value + 1) % tracks.length;
+    });
+  }
+
+  function handleAudioError() {
+    setError('The audio file is unavailable.');
+  }
+
+  const currentTrack = tracks[track];
+
+  return (
+    <MusicContext.Provider value={{ playing, toggle }}>
+      <div className="pointer-lamp" aria-hidden="true">
+        <Lightbulb size={24} />
+      </div>
+
+      <a className="skip-link" href="#main-content">
+        Skip to content
+      </a>
+
+      <header className="site-header">
+        <Link
+          href="/"
+          className="brand"
+          aria-label="Digital Mirror home"
+        >
+          <Sun />
+          <span>
+            DIGITAL
+            <br />
+            MIRROR
+          </span>
+        </Link>
+
+        <nav
+          className={menu ? 'navigation open' : 'navigation'}
+          aria-label="Main navigation"
+        >
+          {navigationItems.map((item) => {
+            const isCurrentPage =
+              item.href === '/'
+                ? pathname === item.href
+                : pathname.startsWith(item.href);
+
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                aria-current={isCurrentPage ? 'page' : undefined}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
+        </nav>
+
+        <button
+          className="voice-mute-button"
+          type="button"
+          aria-pressed={voiceMuted}
+          aria-label={voiceMuted ? 'Unmute voice' : 'Mute voice'}
+          onClick={toggleVoice}
+        >
+          {voiceMuted ? <VolumeOff size={17} /> : <Volume2 size={17} />}
+          <span>{voiceMuted ? 'Voice muted' : 'Voice on'}</span>
+        </button>
+
+        <button className="music-button" onClick={toggle}>
+          <Music2 size={17} />
+          <span>{playing ? 'Pause Music' : 'Play Music'}</span>
+        </button>
+
+        <button
+          className="menu-button icon-button"
+          aria-label={menu ? 'Close navigation' : 'Open navigation'}
+          aria-expanded={menu}
+          onClick={toggleMenu}
+        >
+          {menu ? <X /> : <Menu />}
+        </button>
+      </header>
+
+      {children}
+
+      {voiceError && (
+        <div className="voice-error" role="status">
+          {voiceError}
+        </div>
+      )}
+
+      <MemoryGame />
+
+      <footer className="music-player" aria-label="Music player">
+        <div className={`record ${playing ? 'spinning' : ''}`}>
+          <span>DM</span>
+        </div>
+
+        <div className="track-info">
+          <strong>{currentTrack.title}</strong>
+          <span>{currentTrack.era}</span>
+        </div>
+
+        <div className="transport">
+          <button
+            className="icon-button"
+            aria-label="Previous track"
+            onClick={goToPreviousTrack}
+          >
+            <SkipBack size={17} />
+          </button>
+
+          <button
+            className="play-button"
+            aria-label={playing ? 'Pause' : 'Play'}
+            onClick={toggle}
+          >
+            {playing ? <Pause size={18} /> : <Play size={18} />}
+          </button>
+
+          <button
+            className="icon-button"
+            aria-label="Next track"
+            onClick={goToNextTrack}
+          >
+            <SkipForward size={17} />
+          </button>
+        </div>
+
+        <div className="seek-control">
+          <span>{format(time)}</span>
+          <input
+            aria-label="Seek playback"
+            type="range"
+            min="0"
+            max={duration || 1}
+            step=".1"
+            value={time}
+            onChange={handleSeekChange}
+          />
+          <span>{format(duration)}</span>
+        </div>
+
+        <div className="volume-control">
+          <button
+            className="icon-button"
+            aria-label={volume === 0 ? 'Unmute' : 'Mute'}
+            onClick={toggleVolume}
+          >
+            {volume === 0 ? <VolumeX size={17} /> : <Volume2 size={17} />}
+          </button>
+
+          <input
+            aria-label="Volume"
+            type="range"
+            min="0"
+            max="1"
+            step=".01"
+            value={volume}
+            onChange={handleVolumeChange}
+          />
+        </div>
+
+        <span className="player-label">THE SOUND OF A MEMORY</span>
+
+        <audio
+          ref={audio}
+          src={`/audio/${currentTrack.file}.wav`}
+          preload="metadata"
+          onLoadedMetadata={handleLoadedMetadata}
+          onTimeUpdate={handleTimeUpdate}
+          onPlay={handlePlay}
+          onPause={handlePause}
+          onEnded={handleEnded}
+          onError={handleAudioError}
+        />
+
+        {error && (
+          <span className="audio-error" role="alert">
+            {error}
+          </span>
+        )}
+      </footer>
+    </MusicContext.Provider>
+  );
+}
+
+export function ListenButton() {
+  const { playing, toggle } = useContext(MusicContext);
+
+  return (
+    <button className="text-link" onClick={toggle}>
+      <Music2 size={16} />
+      {playing ? 'Pause the soundtrack' : 'Play the soundtrack'}
+    </button>
+  );
+}
