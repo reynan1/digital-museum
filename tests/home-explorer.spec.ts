@@ -35,3 +35,13 @@ test('homepage previews each decade and opens the chosen gallery', async ({ page
   await explorer.getByRole('link').click();
   await expect(page).toHaveURL(/\/galleries\/1990s$/);
 });
+
+test('Laura welcomes visitors with voice enabled and a comic subtitle', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByRole('button', { name: 'Mute voice' })).toHaveAttribute('aria-pressed', 'false');
+  const welcome = page.locator('.hero-welcome-message');
+  await expect(welcome).toHaveClass(/is-visible/);
+  await expect(welcome).toContainText('Laura');
+  await expect(welcome).toContainText('Digital Mirror');
+  await expect(welcome).toContainText('2000s');
+});

@@ -66,10 +66,16 @@ type VoiceContextValue = {
 type VoiceSpeakOptions = {
   onStart?: () => void;
   onEnd?: () => void;
+  onBlocked?: () => void;
+  lock?: boolean;
+  force?: boolean;
+  cacheAudio?: boolean;
+  useCachedAudio?: boolean;
+  preferBrowser?: boolean;
 };
 
 const VoiceContext = createContext<VoiceContextValue>({
-  voiceMuted: true,
+  voiceMuted: false,
   toggleVoice: () => {},
   speak: () => {},
 });
@@ -88,7 +94,7 @@ function format(value: number) {
 export function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [menu, setMenu] = useState(false);
-  const [voiceMuted, setVoiceMuted] = useState(true);
+  const [voiceMuted, setVoiceMuted] = useState(false);
   const [voiceError, setVoiceError] = useState('');
   const [playing, setPlaying] = useState(false);
   const [track, setTrack] = useState(0);
@@ -102,11 +108,14 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const speechRequest = useRef<AbortController | null>(null);
   const speechAudio = useRef<HTMLAudioElement | null>(null);
   const speechLifecycle = useRef<VoiceSpeakOptions | null>(null);
+  const speechLocked = useRef(false);
+  const speechCache = useRef(new Map<string, string>());
   const lastSpoken = useRef({ text: '', at: 0 });
 
   const finishSpeech = useCallback(() => {
     const onEnd = speechLifecycle.current?.onEnd;
     speechLifecycle.current = null;
+    speechLocked.current = false;
     onEnd?.();
   }, []);
 
@@ -137,11 +146,15 @@ export function Shell({ children }: { children: React.ReactNode }) {
         finishSpeech();
       };
 
-      fallback.onend = finishFallback;
-      fallback.onerror = finishFallback;
-      window.speechSynthesis.cancel();
-      window.speechSynthesis.speak(fallback);
-      return true;
+      try {
+        fallback.onend = finishFallback;
+        fallback.onerror = finishFallback;
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(fallback);
+        return true;
+      } catch {
+        return false;
+      }
     },
     [finishSpeech],
   );
@@ -155,9 +168,14 @@ export function Shell({ children }: { children: React.ReactNode }) {
         return;
       }
 
+      if (speechLocked.current && !options?.force) {
+        return;
+      }
+
       const now = Date.now();
 
       if (
+        !options?.force &&
         lastSpoken.current.text === cleanText &&
         now - lastSpoken.current.at < 1300
       ) {
@@ -172,7 +190,45 @@ export function Shell({ children }: { children: React.ReactNode }) {
       stopSpeech();
       setVoiceError('');
       speechLifecycle.current = options || null;
+      speechLocked.current = options?.lock === true;
       options?.onStart?.();
+
+      const playCachedAudio = (url: string) => {
+        const speechTrack = new Audio(url);
+        speechAudio.current = speechTrack;
+        speechTrack.onended = () => {
+          if (speechAudio.current === speechTrack) {
+            finishSpeech();
+          }
+        };
+        return speechTrack.play();
+      };
+
+      const cachedUrl = options?.useCachedAudio
+        ? speechCache.current.get(cleanText)
+        : undefined;
+
+      if (cachedUrl) {
+        void playCachedAudio(cachedUrl).catch((speechError) => {
+          if (speechError instanceof Error && speechError.name === 'NotAllowedError') {
+            options?.onBlocked?.();
+            finishSpeech();
+            setVoiceError('Your browser blocked audio. Click “Play welcome” to hear Laura.');
+            return;
+          }
+
+          if (speakWithBrowser(cleanText)) {
+            return;
+          }
+
+          finishSpeech();
+        });
+        return;
+      }
+
+      if (options?.preferBrowser && speakWithBrowser(cleanText)) {
+        return;
+      }
 
       speechRequest.current = new AbortController();
       const signal = speechRequest.current.signal;
@@ -204,16 +260,22 @@ export function Shell({ children }: { children: React.ReactNode }) {
             return;
           }
 
-          const speechTrack = new Audio(url);
-          speechAudio.current = speechTrack;
-          speechTrack.onended = () => {
-            if (speechAudio.current === speechTrack) {
-              finishSpeech();
-            }
-            URL.revokeObjectURL(url);
-          };
+          if (options?.cacheAudio) {
+            speechCache.current.set(cleanText, url);
+          }
 
-          await speechTrack.play();
+          try {
+            await playCachedAudio(url);
+          } catch (speechError) {
+            if (speechError instanceof Error && speechError.name === 'NotAllowedError') {
+              options?.onBlocked?.();
+              finishSpeech();
+              setVoiceError('Your browser blocked audio. Click “Play welcome” to hear Laura.');
+              return;
+            }
+
+            throw speechError;
+          }
         })
         .catch((speechError) => {
           if (signal.aborted) {
@@ -314,6 +376,10 @@ export function Shell({ children }: { children: React.ReactNode }) {
       );
 
       if (!control || control.getAttribute('aria-hidden') === 'true') {
+        return;
+      }
+
+      if (control.closest('.hero-welcome-message')) {
         return;
       }
 

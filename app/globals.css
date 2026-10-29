@@ -2439,9 +2439,51 @@ input[type=range] {
   backdrop-filter: blur(10px);
   color: #f8e0ba;
   font: 23px/1.05 'Caveat', cursive;
+  pointer-events: auto;
   opacity: 0;
   transform: translateY(9px) scale(.96);
   transition: opacity .25s ease, transform .25s ease;
+}
+
+.hero-welcome-speaker {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  margin-bottom: 5px;
+  color: #ffd596;
+  font: 700 11px/1 'DM Sans', sans-serif;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+}
+
+.hero-welcome-speaker small {
+  color: #9ddde7;
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 1px;
+}
+
+.hero-welcome-subtitle {
+  display: block;
+}
+
+.hero-welcome-play {
+  display: inline-flex;
+  margin-top: 11px;
+  padding: 6px 11px;
+  border: 1px solid #f5cb8b99;
+  border-radius: 18px;
+  background: #f5cb8b1c;
+  color: #ffe3b0;
+  font: 600 10px/1 'DM Sans', sans-serif;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+}
+
+.hero-welcome-play:hover,
+.hero-welcome-play:focus-visible {
+  border-color: #ffe0a7;
+  background: #f5cb8b35;
 }
 
 .hero-welcome-message:after {
@@ -2776,6 +2818,10 @@ input[type=range] {
     width: min(240px, 65vw);
     padding: 10px 13px 11px;
     font-size: 19px;
+  }
+
+  .hero-welcome-speaker {
+    font-size: 9px;
   }
 
   .memory-walker-track {

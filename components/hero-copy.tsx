@@ -1,13 +1,14 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent, type PointerEvent } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type MouseEvent, type PointerEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { gsap } from 'gsap';
 import { ArrowRight, Sparkles } from 'lucide-react';
 import { useVoice } from './shell';
 
-const welcomeMessage = 'Welcome to our Philippine popular culture museum. Explore the music, stories, and memories that connect us.';
+const welcomeMessage = "Welcome to our digital museum, Digital Mirror! I'm Laura, your tour guide. Choose a decade from the 2000s through today.";
+const welcomeLingerMs = 2200;
 
 const memories = [
   { text: 'Rewinding a mixtape. One favorite song, again.', decade: '1990s' },
@@ -21,28 +22,75 @@ export default function HeroCopy() {
   const [memory, setMemory] = useState(-1);
   const [entering, setEntering] = useState(false);
   const [welcomeVisible, setWelcomeVisible] = useState(false);
+  const [welcomeNeedsPlay, setWelcomeNeedsPlay] = useState(false);
   const { voiceMuted, speak } = useVoice();
   const router = useRouter();
   const current = memories[memory];
-  const wasVoiceMuted = useRef(voiceMuted);
+  const welcomeStarted = useRef(false);
+  const welcomeNeedsPlayRef = useRef(false);
+  const welcomeHideTimer = useRef<number | null>(null);
   const guide = useRef<HTMLDivElement>(null);
   const hostGirl = useRef<HTMLImageElement>(null);
   const absorbedGirl = useRef<HTMLImageElement>(null);
 
   useEffect(() => {
-    const wasMuted = wasVoiceMuted.current;
-    wasVoiceMuted.current = voiceMuted;
+    return () => {
+      if (welcomeHideTimer.current !== null) {
+        window.clearTimeout(welcomeHideTimer.current);
+      }
+    };
+  }, []);
 
-    if (!wasMuted || voiceMuted) {
+  const runWelcome = useCallback((fromUserGesture = false) => {
+    welcomeNeedsPlayRef.current = false;
+    setWelcomeNeedsPlay(false);
+    setWelcomeVisible(true);
+
+    speak(welcomeMessage, {
+      lock: true,
+      force: fromUserGesture,
+      cacheAudio: true,
+      useCachedAudio: fromUserGesture,
+      preferBrowser: fromUserGesture,
+      onStart: () => {
+        if (welcomeHideTimer.current !== null) {
+          window.clearTimeout(welcomeHideTimer.current);
+          welcomeHideTimer.current = null;
+        }
+        welcomeNeedsPlayRef.current = false;
+        setWelcomeNeedsPlay(false);
+        setWelcomeVisible(true);
+      },
+      onBlocked: () => {
+        welcomeNeedsPlayRef.current = true;
+        setWelcomeNeedsPlay(true);
+        setWelcomeVisible(true);
+      },
+      onEnd: () => {
+        if (welcomeNeedsPlayRef.current) {
+          return;
+        }
+
+        welcomeHideTimer.current = window.setTimeout(() => {
+          setWelcomeVisible(false);
+          welcomeHideTimer.current = null;
+        }, welcomeLingerMs);
+      },
+    });
+  }, [speak]);
+
+  useEffect(() => {
+    if (voiceMuted || welcomeStarted.current) {
       return;
     }
 
-    setWelcomeVisible(true);
-    speak(welcomeMessage, {
-      onStart: () => setWelcomeVisible(true),
-      onEnd: () => setWelcomeVisible(false),
-    });
-  }, [speak, voiceMuted]);
+    const timer = window.setTimeout(() => {
+      welcomeStarted.current = true;
+      runWelcome();
+    }, 250);
+
+    return () => window.clearTimeout(timer);
+  }, [runWelcome, voiceMuted]);
 
   useLayoutEffect(() => {
     const girl = hostGirl.current;
@@ -171,7 +219,9 @@ export default function HeroCopy() {
   </div>
   <div ref={guide} className="hero-guide" aria-label="Your guide to the Digital Mirror digital museum">
     <div className={`hero-welcome-message${welcomeVisible ? ' is-visible' : ''}`} role="status" aria-live="polite" aria-hidden={!welcomeVisible}>
-      {welcomeMessage}
+      <span className="hero-welcome-speaker">Laura <small>tour guide</small></span>
+      <span className="hero-welcome-subtitle">{welcomeMessage}</span>
+      {welcomeNeedsPlay && <button className="hero-welcome-play" type="button" onClick={() => runWelcome(true)}>Play welcome</button>}
     </div>
     <img ref={hostGirl} className="hero-host-girl" src="/host-girl.png" alt="Your animated guide welcoming you to the Digital Mirror digital museum" />
     <img ref={absorbedGirl} className="hero-host-girl hero-host-girl-absorbed" src="/host-girl-absorbed.png" alt="" aria-hidden="true" />
