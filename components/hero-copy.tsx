@@ -34,11 +34,13 @@ export default function HeroCopy() {
 
   useEffect(() => {
     if (voiceMuted) {
+      document.documentElement.dataset.welcomeSpeaking = 'false';
       return;
     }
 
     let cancelled = false;
     let nextLineTimer: number | undefined;
+    document.documentElement.dataset.welcomeSpeaking = 'true';
 
     function speakWelcomeLine(index: number) {
       if (cancelled) {
@@ -56,6 +58,9 @@ export default function HeroCopy() {
           const nextIndex = index + 1;
 
           if (cancelled || nextIndex >= welcomeLines.length) {
+            if (!cancelled) {
+              document.documentElement.dataset.welcomeSpeaking = 'false';
+            }
             return;
           }
 
@@ -71,6 +76,7 @@ export default function HeroCopy() {
       if (nextLineTimer !== undefined) {
         window.clearTimeout(nextLineTimer);
       }
+      document.documentElement.dataset.welcomeSpeaking = 'false';
     };
   }, [speak, voiceMuted]);
 

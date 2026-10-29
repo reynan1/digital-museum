@@ -310,7 +310,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     function onPointerOver(event: PointerEvent) {
-      if (pathname === '/') {
+      if (document.documentElement.dataset.welcomeSpeaking === 'true') {
         return;
       }
 
@@ -325,10 +325,6 @@ export function Shell({ children }: { children: React.ReactNode }) {
       );
 
       if (!control || control.getAttribute('aria-hidden') === 'true') {
-        return;
-      }
-
-      if (control.closest('.hero-welcome-message')) {
         return;
       }
 
@@ -354,7 +350,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
       window.removeEventListener('pointerover', onPointerOver);
       stopSpeech();
     };
-  }, [pathname, speak, stopSpeech]);
+  }, [speak, stopSpeech]);
 
   useEffect(() => {
     if (!voiceMuted) {
