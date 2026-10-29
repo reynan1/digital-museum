@@ -2467,25 +2467,6 @@ input[type=range] {
   display: block;
 }
 
-.hero-welcome-play {
-  display: inline-flex;
-  margin-top: 11px;
-  padding: 6px 11px;
-  border: 1px solid #f5cb8b99;
-  border-radius: 18px;
-  background: #f5cb8b1c;
-  color: #ffe3b0;
-  font: 600 10px/1 'DM Sans', sans-serif;
-  letter-spacing: .5px;
-  text-transform: uppercase;
-}
-
-.hero-welcome-play:hover,
-.hero-welcome-play:focus-visible {
-  border-color: #ffe0a7;
-  background: #f5cb8b35;
-}
-
 .hero-welcome-message:after {
   content: '';
   position: absolute;

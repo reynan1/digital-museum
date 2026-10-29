@@ -66,12 +66,7 @@ type VoiceContextValue = {
 type VoiceSpeakOptions = {
   onStart?: () => void;
   onEnd?: () => void;
-  onBlocked?: () => void;
-  lock?: boolean;
   force?: boolean;
-  cacheAudio?: boolean;
-  useCachedAudio?: boolean;
-  preferBrowser?: boolean;
 };
 
 const VoiceContext = createContext<VoiceContextValue>({
@@ -108,14 +103,11 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const speechRequest = useRef<AbortController | null>(null);
   const speechAudio = useRef<HTMLAudioElement | null>(null);
   const speechLifecycle = useRef<VoiceSpeakOptions | null>(null);
-  const speechLocked = useRef(false);
-  const speechCache = useRef(new Map<string, string>());
   const lastSpoken = useRef({ text: '', at: 0 });
 
   const finishSpeech = useCallback(() => {
     const onEnd = speechLifecycle.current?.onEnd;
     speechLifecycle.current = null;
-    speechLocked.current = false;
     onEnd?.();
   }, []);
 
@@ -150,6 +142,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
         fallback.onend = finishFallback;
         fallback.onerror = finishFallback;
         window.speechSynthesis.cancel();
+        speechLifecycle.current?.onStart?.();
         window.speechSynthesis.speak(fallback);
         return true;
       } catch {
@@ -165,10 +158,6 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
       if (!cleanText || cleanText.length > 120 || voiceMuted) {
         stopSpeech();
-        return;
-      }
-
-      if (speechLocked.current && !options?.force) {
         return;
       }
 
@@ -190,45 +179,6 @@ export function Shell({ children }: { children: React.ReactNode }) {
       stopSpeech();
       setVoiceError('');
       speechLifecycle.current = options || null;
-      speechLocked.current = options?.lock === true;
-      options?.onStart?.();
-
-      const playCachedAudio = (url: string) => {
-        const speechTrack = new Audio(url);
-        speechAudio.current = speechTrack;
-        speechTrack.onended = () => {
-          if (speechAudio.current === speechTrack) {
-            finishSpeech();
-          }
-        };
-        return speechTrack.play();
-      };
-
-      const cachedUrl = options?.useCachedAudio
-        ? speechCache.current.get(cleanText)
-        : undefined;
-
-      if (cachedUrl) {
-        void playCachedAudio(cachedUrl).catch((speechError) => {
-          if (speechError instanceof Error && speechError.name === 'NotAllowedError') {
-            options?.onBlocked?.();
-            finishSpeech();
-            setVoiceError('Your browser blocked audio. Click “Play welcome” to hear Laura.');
-            return;
-          }
-
-          if (speakWithBrowser(cleanText)) {
-            return;
-          }
-
-          finishSpeech();
-        });
-        return;
-      }
-
-      if (options?.preferBrowser && speakWithBrowser(cleanText)) {
-        return;
-      }
 
       speechRequest.current = new AbortController();
       const signal = speechRequest.current.signal;
@@ -260,22 +210,17 @@ export function Shell({ children }: { children: React.ReactNode }) {
             return;
           }
 
-          if (options?.cacheAudio) {
-            speechCache.current.set(cleanText, url);
-          }
-
-          try {
-            await playCachedAudio(url);
-          } catch (speechError) {
-            if (speechError instanceof Error && speechError.name === 'NotAllowedError') {
-              options?.onBlocked?.();
+          const speechTrack = new Audio(url);
+          speechAudio.current = speechTrack;
+          speechTrack.onended = () => {
+            if (speechAudio.current === speechTrack) {
               finishSpeech();
-              setVoiceError('Your browser blocked audio. Click “Play welcome” to hear Laura.');
-              return;
             }
+            URL.revokeObjectURL(url);
+          };
 
-            throw speechError;
-          }
+          await speechTrack.play();
+          speechLifecycle.current?.onStart?.();
         })
         .catch((speechError) => {
           if (signal.aborted) {
@@ -365,6 +310,10 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     function onPointerOver(event: PointerEvent) {
+      if (pathname === '/') {
+        return;
+      }
+
       const target = event.target;
 
       if (!(target instanceof Element)) {
@@ -405,7 +354,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
       window.removeEventListener('pointerover', onPointerOver);
       stopSpeech();
     };
-  }, [speak, stopSpeech]);
+  }, [pathname, speak, stopSpeech]);
 
   useEffect(() => {
     if (!voiceMuted) {
