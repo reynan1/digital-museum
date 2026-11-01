@@ -210,8 +210,8 @@ export default function HeroCopy() {
       <span className="hero-welcome-speaker">Laura <small>tour guide</small></span>
       <span className="hero-welcome-subtitle" key={welcomeLine}>{welcomeLines[welcomeLine]}</span>
     </div>
-    <img ref={hostGirl} className="hero-host-girl" src="/host-girl.png" alt="Your animated guide welcoming you to the Digital Mirror digital museum" />
-    <img ref={absorbedGirl} className="hero-host-girl hero-host-girl-absorbed" src="/host-girl-absorbed.png" alt="" aria-hidden="true" />
+    <img ref={hostGirl} className="hero-host-girl" src="/host-girl.webp" alt="Your animated guide welcoming you to the Digital Mirror digital museum" />
+    <img ref={absorbedGirl} className="hero-host-girl hero-host-girl-absorbed" src="/host-girl-absorbed.webp" alt="" aria-hidden="true" />
   </div>
   </>
 }

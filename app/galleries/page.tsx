@@ -1,20 +1,36 @@
-import { DecadeCard } from '@/components/decade-card';
-import { decades } from '@/lib/data';
-export const metadata={title:'Galleries'};
-export default function Galleries(){
-  return <main id="main-content" className="galleries page">
-    <div className="ambient-art"/>
-      <header className="gallery-heading">
-        <p className="eyebrow">The memories are waiting</p>
-        <h1 className="script-heading">Galleries</h1>
-        <h2>Explore by decade</h2>
-        <p>Step into the music, films, fashion, games, food,<br className="desktop-break"/> technology, and stories that defined an era.</p>
+import {
+  GalleryThemeCard,
+  galleryThemes,
+} from '@/components/gallery-theme-card';
+
+export const metadata = { title: 'Galleries' };
+
+export default function Galleries() {
+  return (
+    <main id="main-content" className="galleries page">
+      <div className="ambient-art" aria-hidden="true" />
+
+      <header className="gallery-heading margin-top-galleries">
+{/*         <p className="eyebrow">The memories are waiting</p>
+        <h1 className="script-heading">Galleries</h1> */}
+        <h2 className="script-semi-heading">
+          Philippine Pop Culture Through the Decades
+        </h2>
+        <p>
+          Explore the 2000s, 2010s, and 2020s through three lenses: Technology,
+          Performance, and Body &amp; Self-Image.
+        </p>
       </header>
-      <section className="decade-grid" aria-label="Explore decades">
-        {
-        decades.map((d,i)=><DecadeCard key={d.id} decade={d} index={i}/>)
-        }
+
+      <section className="theme-grid" aria-label="Explore gallery themes">
+        {galleryThemes.map((theme) => (
+          <GalleryThemeCard key={theme.id} theme={theme} />
+        ))}
       </section>
-      <p className="gallery-footnote">Some things change. The feeling stays. <span>✦</span></p>
-     
-    </main>}
+
+      <p className="gallery-footnote">
+        Three lenses. A thousand memories. <span aria-hidden="true" />
+      </p>
+    </main>
+  );
+}

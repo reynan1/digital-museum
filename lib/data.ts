@@ -225,14 +225,14 @@ const imageSources: Record<
   { url: string; credit: string; creditUrl: string }
 > = {
   Music: {
-    url: '/band.png',
+    url: '/band.webp',
     credit: 'Digital Museum collage',
-    creditUrl: '/collage.png',
+    creditUrl: '/collage.webp',
   },
   'TV & Film': {
-    url: '/karaoke.png',
+    url: '/karaoke.webp',
     credit: 'Digital Museum collage',
-    creditUrl: '/collage.png',
+    creditUrl: '/collage.webp',
   },
   Fashion: {
     url: 'https://images.unsplash.com/photo-1525562723836-dca67a71d5f1?auto=format&fit=crop&w=1200&q=85',

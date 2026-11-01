@@ -1,297 +1,299 @@
 'use client';
 
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
-import {
-  ArrowUpRight,
-  ChevronRight,
-  Gamepad2,
-  Heart,
-  Music2,
-  Shirt,
-  Smartphone,
-  Sun,
-  Tv,
-  Utensils,
-  X,
-} from 'lucide-react';
-import {
-  categories,
-  decades,
-  getExhibits,
-  yearRanges,
-  type Category,
-  type Exhibit,
-} from '@/lib/data';
-import { ListenButton } from './shell';
+import { ArrowLeft, ArrowRight, Lightbulb, X } from 'lucide-react';
+import type { Category, decades } from '@/lib/data';
 
-const icons = [
-  Music2,
-  Tv,
-  Shirt,
-  Gamepad2,
-  Utensils,
-  Smartphone,
-  Heart,
+type PollChoice = 'more-like-me' | 'less-like-me' | 'unsure-yet';
+
+const technologySlides = [
+  {
+    src: '/technology-evolution-slide.png',
+    alt: 'Technology Evolution exhibit comparing 2000s cellphones and computers with present-day connected devices, across a digital museum portal.',
+  },
+  {
+    src: '/technology-social-connections-slide.png',
+    alt: 'Social connections in the 2000s compared with today, showing students sharing a text message and friends connecting through current devices.',
+  },
+  {
+    src: '/technology-economic-evolution-slide.png',
+    alt: 'Economic evolution from local shops and cash-based transactions in the 2000s to e-commerce, digital payments, and online business today.',
+  },
+  {
+    src: '/technology-performance-slide.png',
+    alt: 'Performance in the 2000s compared with today, showing live concerts, broadcast media, streaming, and interactive audiences.',
+  },
+  {
+    src: '/technology-politics-slide.png',
+    alt: 'Political communication in the 2000s compared with today, from public rallies and broadcast media to livestreams and online campaigning.',
+  },
+  {
+    src: '/technology-culture-slide.png',
+    alt: 'Culture in the 2000s compared with today, from television, radio, and magazines to creators remixing and sharing culture online.',
+  },
+  {
+    src: '/technology-body-self-image-slide.png',
+    alt: 'Body and self-image in the 2000s compared with today, from physical mirrors and curated beauty standards to cameras, filters, and social media.',
+  },
+  {
+    src: '/technology-environmental-slide.png',
+    alt: 'Environmental care in the 2000s compared with today, from local cleanliness habits to technology-supported, shared greener spaces.',
+  },
+  {
+    src: '/technology-education-slide.png',
+    alt: 'Education in the 2000s compared with today, from textbooks and classroom learning to digital tools, collaboration, and online resources.',
+  },
+  {
+    src: '/technology-corridor-slide.png',
+    alt: 'The Digital Mirror corridor showing past, present, and future versions of the museum host together in a shared story.',
+  },
+  {
+    src: '/technology-unfinished-mirror-slide.png',
+    alt: 'The Unfinished Mirror, a blurred reflection representing a future still being shaped by choices.',
+  },
+  {
+    src: '/technology-prediction-wall-slide.png',
+    alt: 'Four plausible 2030 predictions about AI companions, fluid identity, trusted media, and Filipino creators reaching global audiences.',
+  },
+  {
+    src: '/technology-constant-slide.png',
+    alt: 'The Constant: across changing devices and eras, people still seek connection, recognition, and belonging.',
+  },
+  {
+    src: '/technology-stepping-back-out-slide.png',
+    alt: 'Stepping Back Out: the final mirror shows the visitor surrounded by the museum exhibits and a glowing path forward.',
+  },
 ];
 
-const periods = ['Early years', 'Middle years', 'Later years'];
+const pollResultSlides: Record<PollChoice, { src: string; alt: string; label: string }> = {
+  'more-like-me': {
+    src: '/technology-more-like-me-result.png',
+    alt: 'More Like Me: a visitor sees her present-day self reflected through past technologies and a vision of 2030.',
+    label: 'More like me reflection',
+  },
+  'less-like-me': {
+    src: '/technology-less-like-me-result.png',
+    alt: 'Less Like Me: a visitor looks toward a blurred reflection in an ornate digital mirror.',
+    label: 'Less like me reflection',
+  },
+  'unsure-yet': {
+    src: '/technology-unsure-yet-result.png',
+    alt: "I'm Not Sure Yet: a visitor faces an unfinished digital mirror, leaving the future open to possibility.",
+    label: "I'm not sure yet reflection",
+  },
+};
 
 export function GalleryDetail({
   decade,
+  initialCategory,
+  initialSlide,
 }: {
   decade: (typeof decades)[number];
+  initialCategory?: Category;
+  initialSlide?: number;
 }) {
-  const [category, setCategory] = useState<Category>('Music');
-  const [period, setPeriod] = useState(0);
-  const [selected, setSelected] = useState<Exhibit | null>(null);
-  const dialog = useRef<HTMLDialogElement>(null);
-  const exhibits = getExhibits(decade.id, category, period);
+  const isTechnology = initialCategory === 'Technology';
+  const [slideIndex, setSlideIndex] = useState(() =>
+    Math.min(Math.max((initialSlide ?? 1) - 1, 0), technologySlides.length - 1),
+  );
+  const [pollOpen, setPollOpen] = useState(false);
+  const [pollChoice, setPollChoice] = useState<PollChoice | null>(null);
+  const [pollResult, setPollResult] = useState<PollChoice | null>(null);
+  const pollDialog = useRef<HTMLDialogElement>(null);
+  const slide = technologySlides[slideIndex];
+  const resultSlide = pollResult ? pollResultSlides[pollResult] : null;
+  const isPollSlide = slideIndex === 11;
+  const isLastSlide = slideIndex === technologySlides.length - 1;
 
   useEffect(() => {
-    if (selected) {
-      dialog.current?.showModal();
-    } else {
-      dialog.current?.close();
+    const dialog = pollDialog.current;
+    if (!dialog) return;
+
+    if (isTechnology && pollOpen && !dialog.open) dialog.showModal();
+    else if ((!isTechnology || !pollOpen) && dialog.open) dialog.close();
+  }, [isTechnology, pollOpen]);
+
+  function advanceSlide() {
+    if (isPollSlide) {
+      setPollChoice(null);
+      setPollOpen(true);
+      return;
     }
-  }, [selected]);
 
-  function changeCategory(next: Category) {
-    setCategory(next);
-    setSelected(null);
-  }
-
-  function changePeriod(next: number) {
-    setPeriod(next);
-    setSelected(null);
-  }
-
-  function selectExhibit(exhibit: Exhibit) {
-    setSelected(exhibit);
-  }
-
-  function closeDialog() {
-    setSelected(null);
-  }
-
-  function handleDialogClick(event: React.MouseEvent<HTMLDialogElement>) {
-    if (event.target === event.currentTarget) {
-      closeDialog();
+    if (isLastSlide) {
+      setSlideIndex(0);
+      setPollChoice(null);
+      setPollResult(null);
+      return;
     }
+
+    setSlideIndex((current) => Math.min(technologySlides.length - 1, current + 1));
   }
 
   return (
     <main
       id="main-content"
-      className="detail page"
-      style={{ '--gallery-accent': decade.color } as CSSProperties}
+      className="detail page detail--slides-only"
+      aria-label={`${decade.id} gallery`}
     >
-      <div className="ambient-art" />
-
-      <div className="breadcrumbs">
-        <Link href="/galleries">Galleries</Link>
-        <ChevronRight size={14} />
-        <span>{decade.id}</span>
-      </div>
-
-      <section className="detail-hero">
-        <div>
-          <p className="eyebrow">A DECADE OF SHARED MEMORIES</p>
-          <h1 style={{ color: decade.color }}>{decade.id}</h1>
-          <h2>{decade.title}</h2>
-          <p>{decade.description}</p>
-        </div>
-
-        <div className="memory-collage" aria-hidden="true">
-          <div className="mini-polaroid">
-            <div className="collage-image" />
-            <span>the days we remember ♡</span>
-          </div>
-
-          <div className="paper mini-note">
-            OPM
-            <br />
-            Teen idols
-            <br />
-            Text culture
-            <br />
-            Pinoy movies
-            <br />
-            Early internet <span>♡</span>
-          </div>
-        </div>
-      </section>
-
-      <nav className="decade-switch" aria-label="Choose a decade">
-        {decades.map((item) => {
-          return (
-            <Link
-              key={item.id}
-              href={`/galleries/${item.id}`}
-              aria-current={item.id === decade.id ? 'page' : undefined}
-            >
-              {item.id}
-            </Link>
-          );
-        })}
-      </nav>
-
-      <section
-        className="exhibit-browser"
-        aria-label={`${decade.id} exhibits`}
-      >
-        <aside className="category-list" aria-label="Gallery aspects">
-          {categories.map((item, index) => {
-            const Icon = icons[index];
-
-            return (
+      <div
+        className={`ambient-art detail-ambient-art${isTechnology ? ' detail-ambient-art--technology' : ''}`}
+        aria-hidden="true"
+      />
+      {isTechnology && (
+        <section
+          id={resultSlide ? `${pollResult}-result` : `slide-${slideIndex + 1}`}
+          className="gallery-slide"
+          aria-label={
+            resultSlide
+              ? resultSlide.label
+              : `Technology slide ${slideIndex + 1} of ${technologySlides.length}`
+          }
+        >
+          <img
+            src={resultSlide ? resultSlide.src : slide.src}
+            alt={resultSlide ? resultSlide.alt : slide.alt}
+          />
+          <Link
+            href="/galleries"
+            className="slide-close"
+            aria-label="Close slideshow and return to galleries"
+          >
+            <X size={21} aria-hidden="true" />
+          </Link>
+          {resultSlide ? (
+            <>
               <button
-                key={item}
-                aria-pressed={item === category}
+                className="slide-arrow slide-arrow--previous"
+                type="button"
+                aria-label="Back to slide 12"
                 onClick={() => {
-                  changeCategory(item);
+                  setSlideIndex(11);
+                  setPollResult(null);
                 }}
               >
-                <Icon size={19} />
-                {item}
+                <ArrowLeft size={22} aria-hidden="true" />
               </button>
-            );
-          })}
-        </aside>
-
-        <div className="exhibit-panel">
-          <header className="exhibit-panel-heading">
-            <div>
-              <p className="eyebrow">EXPLORE BY YEAR</p>
-              <h2>
-                <Sun size={23} />
-                {category}
-              </h2>
-            </div>
-
-            <span>
-              {String(categories.indexOf(category) + 1).padStart(2, '0')} / 07
-            </span>
-          </header>
-
-          <div
-            className="year-filters"
-            role="group"
-            aria-label="Filter exhibits by year range"
-          >
-            {yearRanges[decade.id].map((range, index) => {
-              return (
-                <button
-                  key={range}
-                  aria-pressed={period === index}
-                  onClick={() => {
-                    changePeriod(index);
-                  }}
-                >
-                  <span>{periods[index]}</span>
-                  <strong>{range}</strong>
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="exhibit-grid">
-            {exhibits.map((exhibit, index) => {
-              return (
-                <article
-                  key={`${exhibit.title}-${exhibit.year}`}
-                  className="exhibit-card"
-                >
-                  <button
-                    className="exhibit-image-button"
-                    aria-label={`Open ${exhibit.title} image`}
-                    onClick={() => {
-                      selectExhibit(exhibit);
-                    }}
-                  >
-                    <span className={`exhibit-art art-${index}`}>
-                      <img
-                        src={exhibit.image}
-                        alt={`${exhibit.title}, a ${category.toLowerCase()} memory from ${exhibit.year}`}
-                        loading="lazy"
-                      />
-                      <span className="exhibit-number">
-                        {exhibit.year}
-                      </span>
-                      <span className="art-symbol">
-                        {['♫', '✦'][index]}
-                      </span>
-                    </span>
-                  </button>
-
-                  <button
-                    className="exhibit-title"
-                    onClick={() => {
-                      selectExhibit(exhibit);
-                    }}
-                  >
-                    {exhibit.title}
-                    <ArrowUpRight size={15} />
-                  </button>
-                </article>
-              );
-            })}
-          </div>
-
-          <div className="exhibit-bottom">
-            <p>
-              Showing {exhibits.length} stories from{' '}
-              {yearRanges[decade.id][period]}. Open one to explore.
-            </p>
-            <ListenButton />
-          </div>
-        </div>
-      </section>
-
+              <button
+                className="slide-arrow slide-arrow--next"
+                type="button"
+                aria-label="Continue to slide 13"
+                onClick={() => {
+                  setSlideIndex(12);
+                  setPollResult(null);
+                  setPollChoice(null);
+                }}
+              >
+                <ArrowRight size={22} aria-hidden="true" />
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                className="slide-arrow slide-arrow--previous"
+                type="button"
+                aria-label="Previous slide"
+                disabled={slideIndex === 0}
+                onClick={() => setSlideIndex((current) => Math.max(0, current - 1))}
+              >
+                <ArrowLeft size={22} aria-hidden="true" />
+              </button>
+              <button
+                className="slide-arrow slide-arrow--next"
+                type="button"
+                aria-label={
+                  isPollSlide
+                    ? 'Open the visitor poll'
+                    : isLastSlide
+                      ? 'Restart at slide 1'
+                      : 'Next slide'
+                }
+                onClick={advanceSlide}
+              >
+                <ArrowRight size={22} aria-hidden="true" />
+              </button>
+            </>
+          )}
+        </section>
+      )}
       <dialog
-        ref={dialog}
-        className="story-dialog"
-        onCancel={closeDialog}
-        onClick={handleDialogClick}
+        ref={pollDialog}
+        className="mirror-poll-dialog"
+        aria-labelledby="mirror-poll-title"
+        onCancel={(event) => {
+          event.preventDefault();
+          setPollOpen(false);
+        }}
       >
-        {selected && (
-          <>
-            <button
-              className="icon-button close-dialog"
-              aria-label="Close story"
-              onClick={closeDialog}
-            >
-              <X />
-            </button>
-
-            <img
-              className="story-art"
-              src={selected.image}
-              alt={selected.title}
-            />
-
-            <div className="story-copy">
-              <p className="eyebrow">
-                {selected.tag} · {selected.year}
-              </p>
-              <h2>{selected.title}</h2>
-              <p>{selected.description}</p>
-              <p className="memory-prompt">
-                What does this bring back for you?
-              </p>
-              <small>
-                Photo:{' '}
-                <a
-                  href={selected.imageCreditUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  {selected.imageCredit}
-                </a>
-              </small>
+        <div
+          className="pointer-lamp mirror-poll-pointer-lamp"
+          aria-hidden="true"
+        >
+          <Lightbulb size={24} />
+        </div>
+        <div className="mirror-poll-card">
+          <div className="mirror-poll-copy">
+            <header className="mirror-poll-heading">
+              <h2 id="mirror-poll-title">The Visitor Poll</h2>
+              <span aria-hidden="true" />
+            </header>
+            <p className="mirror-poll-question">
+              In 2030, will your digital self feel more like you, or less?
+            </p>
+            <div className="mirror-poll-options" role="group" aria-label="Choose your reflection">
+              <button
+                type="button"
+                className={`mirror-poll-option${pollChoice === 'more-like-me' ? ' is-selected' : ''}`}
+                aria-pressed={pollChoice === 'more-like-me'}
+                onClick={() => {
+                  setPollChoice('more-like-me');
+                  setPollResult('more-like-me');
+                  setPollOpen(false);
+                }}
+              >
+                More like me
+              </button>
+              <button
+                type="button"
+                className={`mirror-poll-option${pollChoice === 'less-like-me' ? ' is-selected' : ''}`}
+                aria-pressed={pollChoice === 'less-like-me'}
+                onClick={() => {
+                  setPollChoice('less-like-me');
+                  setPollResult('less-like-me');
+                  setPollOpen(false);
+                }}
+              >
+                Less like me
+              </button>
+              <button
+                type="button"
+                className={`mirror-poll-option${pollChoice === 'unsure-yet' ? ' is-selected' : ''}`}
+                aria-pressed={pollChoice === 'unsure-yet'}
+                onClick={() => {
+                  setPollChoice('unsure-yet');
+                  setPollResult('unsure-yet');
+                  setPollOpen(false);
+                }}
+              >
+                I'm not sure yet
+              </button>
             </div>
-          </>
-        )}
+            <button
+              className="mirror-poll-back"
+              type="button"
+              onClick={() => setPollOpen(false)}
+            >
+              <ArrowLeft size={17} aria-hidden="true" />
+              Back to slide 12
+            </button>
+          </div>
+          <div
+            className="mirror-poll-image"
+            role="img"
+            aria-label="A visitor facing a glowing digital mirror in the museum."
+          />
+        </div>
       </dialog>
     </main>
   );

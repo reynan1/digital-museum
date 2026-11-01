@@ -30,17 +30,17 @@ const tracks = [
   {
     title: 'Golden-hour Memories',
     file: 'golden-hour',
-    era: 'Original instrumental Ã‚Â· 2000s mood',
+    era: 'Original instrumental · 2000s mood',
   },
   {
     title: 'Postcards from Manila',
     file: 'postcards',
-    era: 'Original instrumental Ã‚Â· 1990s mood',
+    era: 'Original instrumental · 1990s mood',
   },
   {
     title: 'Neon Homecoming',
     file: 'neon',
-    era: 'Original instrumental Ã‚Â· 2010s mood',
+    era: 'Original instrumental · 2010s mood',
   },
 ];
 
@@ -89,7 +89,7 @@ function format(value: number) {
 export function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [menu, setMenu] = useState(false);
-  const [voiceMuted, setVoiceMuted] = useState(false);
+  const [voiceMuted, setVoiceMuted] = useState(true);
   const [voiceError, setVoiceError] = useState('');
   const [playing, setPlaying] = useState(false);
   const [track, setTrack] = useState(0);
@@ -309,14 +309,27 @@ export function Shell({ children }: { children: React.ReactNode }) {
   }, [volume]);
 
   useEffect(() => {
+    let hoverTimer: number | null = null;
+    let pendingText = '';
+
+    function clearPendingSpeech() {
+      if (hoverTimer !== null) {
+        window.clearTimeout(hoverTimer);
+        hoverTimer = null;
+      }
+      pendingText = '';
+    }
+
     function onPointerOver(event: PointerEvent) {
       if (document.documentElement.dataset.welcomeSpeaking === 'true') {
+        clearPendingSpeech();
         return;
       }
 
       const target = event.target;
 
       if (!(target instanceof Element)) {
+        clearPendingSpeech();
         return;
       }
 
@@ -325,6 +338,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
       );
 
       if (!control || control.getAttribute('aria-hidden') === 'true') {
+        clearPendingSpeech();
         return;
       }
 
@@ -338,16 +352,28 @@ export function Shell({ children }: { children: React.ReactNode }) {
         .trim();
 
       if (!text || text.length > 120) {
+        clearPendingSpeech();
         return;
       }
 
-      speak(text);
+      if (text === pendingText) {
+        return;
+      }
+
+      clearPendingSpeech();
+      pendingText = text;
+      hoverTimer = window.setTimeout(() => {
+        hoverTimer = null;
+        pendingText = '';
+        speak(text);
+      }, 300);
     }
 
     window.addEventListener('pointerover', onPointerOver);
 
     return () => {
       window.removeEventListener('pointerover', onPointerOver);
+      clearPendingSpeech();
       stopSpeech();
     };
   }, [speak, stopSpeech]);

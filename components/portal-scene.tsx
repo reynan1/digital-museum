@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 
+const PORTAL_MOTION_RATE = 0.08;
+
 // Animate the original painting in image coordinates, keeping the room still.
 const vertexSource = `
 attribute vec2 position;
@@ -77,10 +79,10 @@ void main() {
 export default function PortalScene() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const emberRef = useRef<HTMLCanvasElement>(null);
-  const energizedRef = useRef(false);
-  const [energized, setEnergized] = useState(false);
-  const [opened, setOpened] = useState(false);
-  const [paused, setPaused] = useState(true);
+  const energizedRef = useRef(true);
+  const [energized, setEnergized] = useState(true);
+  const [opened, setOpened] = useState(true);
+  const [paused, setPaused] = useState(false);
 
   function openPortal() {
     energizedRef.current = true;
@@ -155,9 +157,10 @@ export default function PortalScene() {
     let disposed = false, loaded = false, frame = 0, elapsed = 0, last = 0;
     let targetPull = 0, currentPull = 0, pointerX = 0, pointerY = 0, pressed = false;
     const host = canvas.closest('main')!;
+    let inView = !('IntersectionObserver' in window);
     let width = 0, height = 0;
     // Stable seeds keep the ash field continuous across frames.
-    const sparks = Array.from({ length: 110 }, (_, i) => ({
+    const sparks = Array.from({ length: 70 }, (_, i) => ({
       phase: (i * .61803398875) % 1,
       angle: i * 2.399963,
       speed: .055 + (i % 7) * .007,
@@ -201,7 +204,7 @@ export default function PortalScene() {
       ink.globalCompositeOperation = 'source-over';
     };
     const resize = () => {
-      const ratio = Math.min(window.devicePixelRatio || 1, 1.5);
+      const ratio = Math.min(window.devicePixelRatio || 1, 1);
       width = canvas.clientWidth;
       height = canvas.clientHeight;
       canvas.width = Math.round(canvas.clientWidth * ratio);
@@ -213,8 +216,12 @@ export default function PortalScene() {
       gl.uniform2f(uniforms.viewport, canvas.clientWidth, canvas.clientHeight);
     };
     const draw = (now: number) => {
+      if (last && now - last < 1000 / 30) {
+        frame = requestAnimationFrame(draw);
+        return;
+      }
       const dt = last ? Math.min((now - last) / 1000, .05) : 0;
-      elapsed += dt;
+      elapsed += dt * PORTAL_MOTION_RATE;
       last = now;
       const surge = energizedRef.current ? 1 : 0;
       currentPull += (Math.max(targetPull, surge, pressed ? 1 : 0) - currentPull) * (1 - Math.exp(-dt * 4.5));
@@ -233,7 +240,7 @@ export default function PortalScene() {
       cancelAnimationFrame(frame);
       last = 0;
       if (motion.matches) { canvas.style.opacity = '0'; embers.style.opacity = '0'; }
-      if (loaded && !document.hidden && !motion.matches) frame = requestAnimationFrame(draw);
+      if (loaded && inView && !document.hidden && !motion.matches) frame = requestAnimationFrame(draw);
     };
     const move = (event: PointerEvent) => {
       const bounds = canvas.getBoundingClientRect();
@@ -262,9 +269,16 @@ export default function PortalScene() {
       resize();
       sync();
     };
-    image.src = '/mirror-portal.png';
-    const observer = new ResizeObserver(resize);
-    observer.observe(canvas);
+    image.src = '/mirror-portal.webp';
+    const resizeObserver = new ResizeObserver(resize);
+    resizeObserver.observe(canvas);
+    const visibilityObserver = 'IntersectionObserver' in window
+      ? new IntersectionObserver((entries) => {
+          inView = entries.some((entry) => entry.isIntersecting);
+          sync();
+        })
+      : null;
+    visibilityObserver?.observe(host);
     host.addEventListener('pointermove', move);
     host.addEventListener('pointerdown', move);
     host.addEventListener('pointerup', leave);
@@ -279,7 +293,8 @@ export default function PortalScene() {
       disposed = true;
       image.onload = null;
       cancelAnimationFrame(frame);
-      observer.disconnect();
+      resizeObserver.disconnect();
+      visibilityObserver?.disconnect();
       host.removeEventListener('pointermove', move);
       host.removeEventListener('pointerdown', move);
       host.removeEventListener('pointerup', leave);
