@@ -10,6 +10,20 @@ export default function About(){
         <p className="eyebrow">A journey through Philippine popular culture</p>
         <p>Digital Mirror is an interactive museum that celebrates the stories, people, places, and trends that shaped Philippine popular culture from the 1990s to the 2020s.</p>
         <p>Through music, film, fashion, food, games, and everyday life, we explore how generations connect, adapt, and create a uniquely Filipino identity.</p>
+        <section className="about-team" aria-labelledby="about-team-title">
+          <p className="eyebrow">Project team</p>
+          <h2 id="about-team-title">Group 5 Members</h2>
+          <p className="about-team-context">
+            This Digital Mirror project looks at how technology and shared memories shape Filipino popular culture across generations.
+          </p>
+          <ul>
+            <li>Reynan S. Delizo</li>
+            <li>Geraldine Tayo</li>
+            <li>Jeannica Alexis Pagatpat</li>
+            <li>Aprilyn Pascua</li>
+            <li>Bob Fortune Maskariño</li>
+          </ul>
+        </section>
         <blockquote className="paper quote">Different eras.<br/>Same spirit.<br/>Always Filipino. 
           <span>☀</span>
         </blockquote>
