@@ -25,8 +25,8 @@ export default function About(){
             <li>Reynan S. Delizo</li>
             <li>Geraldine Tayo</li>
             <li>Jeannica Alexis Pagatpat</li>
-            <li>Aprilyn Pascua</li>
             <li>Bob Fortune Maskariño</li>
+            <li>Aprilyn Pascua</li>
             <li>Christian Jimmy Uriel Ramos</li>
           </ul>
         </section>
