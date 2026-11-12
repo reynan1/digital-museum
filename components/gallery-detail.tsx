@@ -2,59 +2,77 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, ArrowRight, Lightbulb, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Lightbulb, Play, X } from 'lucide-react';
 import type { Category, decades } from '@/lib/data';
 
 type PollChoice = 'more-like-me' | 'less-like-me' | 'unsure-yet';
 
-const technologySlides = [
+type TechnologySlide = {
+  src: string;
+  alt: string;
+  audio?: string;
+};
+
+const technologySlides: TechnologySlide[] = [
   {
     src: '/technology-evolution-slide.png',
     alt: 'Technology Evolution exhibit comparing 2000s cellphones and computers with present-day connected devices, across a digital museum portal.',
+    audio: '/audio/technology-evolution.mp3',
   },
   {
     src: '/technology-social-connections-slide.png',
     alt: 'Social connections in the 2000s compared with today, showing students sharing a text message and friends connecting through current devices.',
+    audio: '/audio/social-connections.mp3',
   },
   {
     src: '/technology-economic-evolution-slide.png',
     alt: 'Economic evolution from local shops and cash-based transactions in the 2000s to e-commerce, digital payments, and online business today.',
+    audio: '/audio/economic-evolution.mp3',
   },
   {
     src: '/technology-performance-slide.png',
     alt: 'Performance in the 2000s compared with today, showing live concerts, broadcast media, streaming, and interactive audiences.',
+    audio: '/audio/performance.mp3',
   },
   {
     src: '/technology-politics-slide.png',
     alt: 'Political communication in the 2000s compared with today, from public rallies and broadcast media to livestreams and online campaigning.',
+    audio: '/audio/politics.mp3',
   },
   {
     src: '/technology-culture-slide.png',
     alt: 'Culture in the 2000s compared with today, from television, radio, and magazines to creators remixing and sharing culture online.',
+    audio: '/audio/culture.mp3',
   },
   {
     src: '/technology-body-self-image-slide.png',
     alt: 'Body and self-image in the 2000s compared with today, from physical mirrors and curated beauty standards to cameras, filters, and social media.',
+    audio: '/audio/body-self-image.mp3',
   },
   {
     src: '/technology-environmental-slide.png',
     alt: 'Environmental care in the 2000s compared with today, from local cleanliness habits to technology-supported, shared greener spaces.',
+    audio: '/audio/environmental.mp3',
   },
   {
     src: '/technology-education-slide.png',
     alt: 'Education in the 2000s compared with today, from textbooks and classroom learning to digital tools, collaboration, and online resources.',
+    audio: '/audio/education.mp3',
   },
   {
     src: '/technology-corridor-slide.png',
     alt: 'The Digital Mirror corridor showing past, present, and future versions of the museum host together in a shared story.',
+    audio: '/audio/the-corridor.mp3',
   },
   {
     src: '/technology-unfinished-mirror-slide.png',
     alt: 'The Unfinished Mirror, a blurred reflection representing a future still being shaped by choices.',
+    audio: '/audio/the-unfinished-mirror.mp3',
   },
   {
     src: '/technology-prediction-wall-slide.png',
     alt: 'Four plausible 2030 predictions about AI companions, fluid identity, trusted media, and Filipino creators reaching global audiences.',
+    audio: '/audio/prediction-wall.mp3',
   },
   {
     src: '/technology-constant-slide.png',
@@ -100,11 +118,48 @@ export function GalleryDetail({
   const [pollOpen, setPollOpen] = useState(false);
   const [pollChoice, setPollChoice] = useState<PollChoice | null>(null);
   const [pollResult, setPollResult] = useState<PollChoice | null>(null);
+  const [audioNeedsGesture, setAudioNeedsGesture] = useState(false);
   const pollDialog = useRef<HTMLDialogElement>(null);
+  const slideAudio = useRef<HTMLAudioElement>(null);
   const slide = technologySlides[slideIndex];
   const resultSlide = pollResult ? pollResultSlides[pollResult] : null;
+  const activeSlideAudioSrc =
+    isTechnology && !resultSlide && !pollOpen ? slide.audio : undefined;
   const isPollSlide = slideIndex === 11;
   const isLastSlide = slideIndex === technologySlides.length - 1;
+
+  useEffect(() => {
+    const audio = slideAudio.current;
+
+    if (!audio) {
+      return;
+    }
+
+    if (!activeSlideAudioSrc) {
+      audio.pause();
+      audio.currentTime = 0;
+      setAudioNeedsGesture(false);
+      return;
+    }
+
+    let cancelled = false;
+    audio.currentTime = 0;
+    void audio.play().then(() => {
+      if (!cancelled) {
+        setAudioNeedsGesture(false);
+      }
+    }).catch(() => {
+      if (!cancelled) {
+        setAudioNeedsGesture(true);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      audio.pause();
+      audio.currentTime = 0;
+    };
+  }, [activeSlideAudioSrc]);
 
   useEffect(() => {
     const dialog = pollDialog.current;
@@ -115,6 +170,11 @@ export function GalleryDetail({
   }, [isTechnology, pollOpen]);
 
   function advanceSlide() {
+    const audio = slideAudio.current;
+    audio?.pause();
+    if (audio) audio.currentTime = 0;
+    setAudioNeedsGesture(false);
+
     if (isPollSlide) {
       setPollChoice(null);
       setPollOpen(true);
@@ -129,6 +189,17 @@ export function GalleryDetail({
     }
 
     setSlideIndex((current) => Math.min(technologySlides.length - 1, current + 1));
+  }
+
+  function replaySlideAudio() {
+    const audio = slideAudio.current;
+
+    if (!audio) {
+      return;
+    }
+
+    audio.currentTime = 0;
+    void audio.play().then(() => setAudioNeedsGesture(false)).catch(() => setAudioNeedsGesture(true));
   }
 
   return (
@@ -154,6 +225,22 @@ export function GalleryDetail({
           <img
             src={resultSlide ? resultSlide.src : slide.src}
             alt={resultSlide ? resultSlide.alt : slide.alt}
+          />
+          {activeSlideAudioSrc && audioNeedsGesture && (
+            <button
+              className="slide-audio-play"
+              type="button"
+              onClick={replaySlideAudio}
+            >
+              <Play size={15} fill="currentColor" aria-hidden="true" />
+              Play slide audio
+            </button>
+          )}
+          <audio
+            ref={slideAudio}
+            src={activeSlideAudioSrc}
+            preload={activeSlideAudioSrc ? 'auto' : 'none'}
+            aria-label="Technology slide audio"
           />
           <Link
             href="/galleries"

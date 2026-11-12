@@ -4,14 +4,38 @@ import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent, type Poi
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { gsap } from 'gsap';
-import { ArrowRight, Sparkles } from 'lucide-react';
+import { ArrowRight, Play, Sparkles } from 'lucide-react';
 import { useVoice } from './shell';
 
 const welcomeLines = [
-  'Welcome to our digital museum, Digital Mirror!',
-  "I'm Laura, your tour guide.",
-  'Choose a decade from the 2000s through today.',
+  { text: 'Beyond this mirror, beyond this portal—time unfolds.', pauseAfter: 0 },
+  { text: 'Welcome to our Digital Museum. I’m Laura, your tour guide on a journey through Philippine pop culture.', pauseAfter: 0.5 },
+  { text: 'As we step through, we’ll explore the trends that shaped the Philippines from 2000 to 2010,', pauseAfter: 0 },
+  { text: 'see how they’ve evolved in the present, and then look into one last mirror that hasn’t happened yet.', pauseAfter: 0 },
+  { text: 'Follow me.', pauseAfter: 0 },
+  { text: 'Our tour begins now.', pauseAfter: 0 },
 ] as const;
+
+function getWelcomeLineIndex(currentTime: number, duration: number) {
+  if (!Number.isFinite(duration) || duration <= 0) {
+    return 0;
+  }
+
+  const weights = welcomeLines.map(({ text, pauseAfter }) =>
+    text.trim().split(/\s+/).length + pauseAfter * 2.7,
+  );
+  const position = (currentTime / duration) * weights.reduce((sum, weight) => sum + weight, 0);
+  let elapsedWeight = 0;
+
+  for (let index = 0; index < weights.length; index += 1) {
+    elapsedWeight += weights[index];
+    if (position < elapsedWeight) {
+      return index;
+    }
+  }
+
+  return welcomeLines.length - 1;
+}
 
 const memories = [
   { text: 'Rewinding a mixtape. One favorite song, again.', decade: '1990s' },
@@ -25,60 +49,85 @@ export default function HeroCopy() {
   const [memory, setMemory] = useState(-1);
   const [entering, setEntering] = useState(false);
   const [welcomeLine, setWelcomeLine] = useState(0);
-  const { voiceMuted, speak } = useVoice();
+  const [welcomeNeedsGesture, setWelcomeNeedsGesture] = useState(false);
+  const { voiceMuted, setVoiceMuted } = useVoice();
   const router = useRouter();
   const current = memories[memory];
   const guide = useRef<HTMLDivElement>(null);
   const hostGirl = useRef<HTMLImageElement>(null);
   const absorbedGirl = useRef<HTMLImageElement>(null);
+  const hostVoice = useRef<HTMLAudioElement>(null);
 
   useEffect(() => {
-    if (voiceMuted) {
-      document.documentElement.dataset.welcomeSpeaking = 'false';
+    setVoiceMuted(false);
+    return () => setVoiceMuted(true);
+  }, [setVoiceMuted]);
+
+  useEffect(() => {
+    const audio = hostVoice.current;
+
+    if (!audio) {
       return;
     }
 
     let cancelled = false;
-    let nextLineTimer: number | undefined;
-    document.documentElement.dataset.welcomeSpeaking = 'true';
+    const handlePlay = () => setWelcomeLine(0);
+    const handleEnded = () => {
+      setWelcomeLine(welcomeLines.length - 1);
+    };
+    const handleTimeUpdate = () => {
+      setWelcomeLine(getWelcomeLineIndex(audio.currentTime, audio.duration));
+    };
 
-    function speakWelcomeLine(index: number) {
-      if (cancelled) {
-        return;
-      }
+    audio.addEventListener('play', handlePlay);
+    audio.addEventListener('ended', handleEnded);
+    audio.addEventListener('timeupdate', handleTimeUpdate);
 
-      speak(welcomeLines[index], {
-        force: true,
-        onStart: () => {
+    if (voiceMuted) {
+      audio.pause();
+      audio.currentTime = 0;
+      setWelcomeLine(0);
+      setWelcomeNeedsGesture(false);
+    } else {
+      audio.currentTime = 0;
+      void audio
+        .play()
+        .then(() => {
           if (!cancelled) {
-            setWelcomeLine(index);
+            setWelcomeNeedsGesture(false);
           }
-        },
-        onEnd: () => {
-          const nextIndex = index + 1;
-
-          if (cancelled || nextIndex >= welcomeLines.length) {
-            if (!cancelled) {
-              document.documentElement.dataset.welcomeSpeaking = 'false';
-            }
-            return;
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setWelcomeNeedsGesture(true);
           }
-
-          nextLineTimer = window.setTimeout(() => speakWelcomeLine(nextIndex), 180);
-        },
-      });
+        });
     }
-
-    speakWelcomeLine(0);
 
     return () => {
       cancelled = true;
-      if (nextLineTimer !== undefined) {
-        window.clearTimeout(nextLineTimer);
-      }
-      document.documentElement.dataset.welcomeSpeaking = 'false';
+      audio.pause();
+      audio.currentTime = 0;
+      audio.removeEventListener('play', handlePlay);
+      audio.removeEventListener('ended', handleEnded);
+      audio.removeEventListener('timeupdate', handleTimeUpdate);
     };
-  }, [speak, voiceMuted]);
+  }, [voiceMuted]);
+
+  function replayWelcome() {
+    const audio = hostVoice.current;
+
+    if (!audio) {
+      return;
+    }
+
+    audio.currentTime = 0;
+    setWelcomeLine(0);
+    void audio
+      .play()
+      .then(() => setWelcomeNeedsGesture(false))
+      .catch(() => setWelcomeNeedsGesture(true));
+  }
 
   useLayoutEffect(() => {
     const girl = hostGirl.current;
@@ -208,10 +257,12 @@ export default function HeroCopy() {
   <div ref={guide} className="hero-guide" aria-label="Your guide to the Digital Mirror digital museum">
     <div className="hero-welcome-message is-visible" role="status" aria-live="polite">
       <span className="hero-welcome-speaker">Laura <small>tour guide</small></span>
-      <span className="hero-welcome-subtitle" key={welcomeLine}>{welcomeLines[welcomeLine]}</span>
+      <span className="hero-welcome-subtitle" key={welcomeLine}>{welcomeLines[welcomeLine].text}</span>
+      {welcomeNeedsGesture && <button className="hero-welcome-replay" type="button" onClick={replayWelcome}><Play size={12} fill="currentColor" /> Play Laura&apos;s welcome</button>}
     </div>
     <img ref={hostGirl} className="hero-host-girl" src="/host-girl.webp" alt="Your animated guide welcoming you to the Digital Mirror digital museum" />
     <img ref={absorbedGirl} className="hero-host-girl hero-host-girl-absorbed" src="/host-girl-absorbed.webp" alt="" aria-hidden="true" />
+    <audio ref={hostVoice} src="/audio/home-host.mp3" preload="auto" aria-label="Laura welcomes you to the Digital Mirror digital museum" />
   </div>
   </>
 }

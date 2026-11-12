@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   createContext,
-  useCallback,
   useContext,
   useEffect,
   useRef,
@@ -60,19 +59,13 @@ const MusicContext = createContext({
 type VoiceContextValue = {
   voiceMuted: boolean;
   toggleVoice: () => void;
-  speak: (text: string, options?: VoiceSpeakOptions) => void;
-};
-
-type VoiceSpeakOptions = {
-  onStart?: () => void;
-  onEnd?: () => void;
-  force?: boolean;
+  setVoiceMuted: (muted: boolean) => void;
 };
 
 const VoiceContext = createContext<VoiceContextValue>({
   voiceMuted: false,
   toggleVoice: () => {},
-  speak: () => {},
+  setVoiceMuted: () => {},
 });
 
 export function useVoice() {
@@ -90,7 +83,6 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [menu, setMenu] = useState(false);
   const [voiceMuted, setVoiceMuted] = useState(true);
-  const [voiceError, setVoiceError] = useState('');
   const [playing, setPlaying] = useState(false);
   const [track, setTrack] = useState(0);
   const [time, setTime] = useState(0);
@@ -100,147 +92,6 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
   const audio = useRef<HTMLAudioElement>(null);
   const pendingPlay = useRef(false);
-  const speechRequest = useRef<AbortController | null>(null);
-  const speechAudio = useRef<HTMLAudioElement | null>(null);
-  const speechLifecycle = useRef<VoiceSpeakOptions | null>(null);
-  const lastSpoken = useRef({ text: '', at: 0 });
-
-  const finishSpeech = useCallback(() => {
-    const onEnd = speechLifecycle.current?.onEnd;
-    speechLifecycle.current = null;
-    onEnd?.();
-  }, []);
-
-  const stopSpeech = useCallback(() => {
-    speechRequest.current?.abort();
-    speechAudio.current?.pause();
-    window.speechSynthesis?.cancel();
-    finishSpeech();
-  }, [finishSpeech]);
-
-  const speakWithBrowser = useCallback(
-    (text: string) => {
-      if (
-        typeof window === 'undefined' ||
-        !('speechSynthesis' in window) ||
-        typeof SpeechSynthesisUtterance === 'undefined'
-      ) {
-        return false;
-      }
-
-      const fallback = new SpeechSynthesisUtterance(text);
-      fallback.rate = 0.96;
-      fallback.pitch = 1.02;
-
-      const finishFallback = () => {
-        fallback.onend = null;
-        fallback.onerror = null;
-        finishSpeech();
-      };
-
-      try {
-        fallback.onend = finishFallback;
-        fallback.onerror = finishFallback;
-        window.speechSynthesis.cancel();
-        speechLifecycle.current?.onStart?.();
-        window.speechSynthesis.speak(fallback);
-        return true;
-      } catch {
-        return false;
-      }
-    },
-    [finishSpeech],
-  );
-
-  const speak = useCallback(
-    (text: string, options?: VoiceSpeakOptions) => {
-      const cleanText = text.replace(/\s+/g, ' ').trim();
-
-      if (!cleanText || cleanText.length > 120 || voiceMuted) {
-        stopSpeech();
-        return;
-      }
-
-      const now = Date.now();
-
-      if (
-        !options?.force &&
-        lastSpoken.current.text === cleanText &&
-        now - lastSpoken.current.at < 1300
-      ) {
-        return;
-      }
-
-      lastSpoken.current = {
-        text: cleanText,
-        at: now,
-      };
-
-      stopSpeech();
-      setVoiceError('');
-      speechLifecycle.current = options || null;
-
-      speechRequest.current = new AbortController();
-      const signal = speechRequest.current.signal;
-
-      void fetch('/api/speech', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ text: cleanText }),
-        signal,
-      })
-        .then(async (response) => {
-          if (!response.ok) {
-            const details = await response.json().catch(() => ({}));
-
-            throw new Error(
-              response.status === 503
-                ? 'Add your ElevenLabs API key and restart the server.'
-                : details.providerMessage ||
-                    'ElevenLabs speech failed. Check the server or voice ID.',
-            );
-          }
-
-          const url = URL.createObjectURL(await response.blob());
-
-          if (signal.aborted) {
-            URL.revokeObjectURL(url);
-            return;
-          }
-
-          const speechTrack = new Audio(url);
-          speechAudio.current = speechTrack;
-          speechTrack.onended = () => {
-            if (speechAudio.current === speechTrack) {
-              finishSpeech();
-            }
-            URL.revokeObjectURL(url);
-          };
-
-          await speechTrack.play();
-          speechLifecycle.current?.onStart?.();
-        })
-        .catch((speechError) => {
-          if (signal.aborted) {
-            return;
-          }
-
-          if (speakWithBrowser(cleanText)) {
-            return;
-          }
-
-          finishSpeech();
-          setVoiceError(
-            speechError instanceof Error
-              ? speechError.message
-              : 'ElevenLabs speech failed.',
-          );
-        });
-    },
-    [finishSpeech, speakWithBrowser, stopSpeech, voiceMuted],
-  );
 
   useEffect(() => {
     const finePointer = window.matchMedia(
@@ -307,84 +158,6 @@ export function Shell({ children }: { children: React.ReactNode }) {
       audio.current.volume = volume;
     }
   }, [volume]);
-
-  useEffect(() => {
-    let hoverTimer: number | null = null;
-    let pendingText = '';
-
-    function clearPendingSpeech() {
-      if (hoverTimer !== null) {
-        window.clearTimeout(hoverTimer);
-        hoverTimer = null;
-      }
-      pendingText = '';
-    }
-
-    function onPointerOver(event: PointerEvent) {
-      if (document.documentElement.dataset.welcomeSpeaking === 'true') {
-        clearPendingSpeech();
-        return;
-      }
-
-      const target = event.target;
-
-      if (!(target instanceof Element)) {
-        clearPendingSpeech();
-        return;
-      }
-
-      const control = target.closest(
-        'a,button,[role="link"],[data-speak],h1,h2,h3,h4,h5,h6,p,li,dt,dd,summary,label,span,strong,small,em,figcaption',
-      );
-
-      if (!control || control.getAttribute('aria-hidden') === 'true') {
-        clearPendingSpeech();
-        return;
-      }
-
-      const text = (
-        control.getAttribute('data-speak') ||
-        control.getAttribute('aria-label') ||
-        control.textContent ||
-        ''
-      )
-        .replace(/\s+/g, ' ')
-        .trim();
-
-      if (!text || text.length > 120) {
-        clearPendingSpeech();
-        return;
-      }
-
-      if (text === pendingText) {
-        return;
-      }
-
-      clearPendingSpeech();
-      pendingText = text;
-      hoverTimer = window.setTimeout(() => {
-        hoverTimer = null;
-        pendingText = '';
-        speak(text);
-      }, 300);
-    }
-
-    window.addEventListener('pointerover', onPointerOver);
-
-    return () => {
-      window.removeEventListener('pointerover', onPointerOver);
-      clearPendingSpeech();
-      stopSpeech();
-    };
-  }, [speak, stopSpeech]);
-
-  useEffect(() => {
-    if (!voiceMuted) {
-      return;
-    }
-
-    stopSpeech();
-  }, [stopSpeech, voiceMuted]);
 
   async function play() {
     try {
@@ -486,7 +259,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const currentTrack = tracks[track];
 
   return (
-      <VoiceContext.Provider value={{ voiceMuted, toggleVoice, speak }}>
+      <VoiceContext.Provider value={{ voiceMuted, toggleVoice, setVoiceMuted }}>
         <MusicContext.Provider value={{ playing, toggle }}>
       <div className="pointer-lamp" aria-hidden="true">
         <Lightbulb size={24} />
@@ -532,16 +305,18 @@ export function Shell({ children }: { children: React.ReactNode }) {
           })}
         </nav>
 
-        <button
-          className="voice-mute-button"
-          type="button"
-          aria-pressed={voiceMuted}
-          aria-label={voiceMuted ? 'Unmute voice' : 'Mute voice'}
-          onClick={toggleVoice}
-        >
-          {voiceMuted ? <VolumeOff size={17} /> : <Volume2 size={17} />}
-          <span>{voiceMuted ? 'Voice muted' : 'Voice on'}</span>
-        </button>
+        {pathname === '/' && (
+          <button
+            className="voice-mute-button"
+            type="button"
+            aria-pressed={voiceMuted}
+            aria-label={voiceMuted ? 'Unmute Laura’s voice' : 'Mute Laura’s voice'}
+            onClick={toggleVoice}
+          >
+            {voiceMuted ? <VolumeOff size={17} /> : <Volume2 size={17} />}
+            <span>{voiceMuted ? 'Voice muted' : 'Voice on'}</span>
+          </button>
+        )}
 
         <button className="music-button" onClick={toggle}>
           <Music2 size={17} />
@@ -559,12 +334,6 @@ export function Shell({ children }: { children: React.ReactNode }) {
       </header>
 
       {children}
-
-      {voiceError && (
-        <div className="voice-error" role="status">
-          {voiceError}
-        </div>
-      )}
 
       <MemoryGame />
 
